@@ -24,10 +24,12 @@ OBJECTS_DIR +=obj
 
 #IN
 SOURCES +=  main.cpp\
+            hwBehave.cpp \
             main_timerrf.cpp 
 
 
-HEADERS  += main_timerrf.h 
+HEADERS  += main_timerrf.h  \
+    hwBehave.h
 
 #OUT
 DESTDIR = ../$${RELEASEDIR}

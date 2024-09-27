@@ -1,11 +1,10 @@
-#include <QSerialPort>
+
 #include "main_timerrf.h"
 //-----------------------------------------------------------------------------
 //--- Constructor
 //-----------------------------------------------------------------------------
 TTimerRf::TTimerRf(QWidget *parent)  : QMainWindow(parent)
 {
-  slot_readSettings();
   create_ListWidget();
   create_Menu();
   create_StatusBar();
@@ -27,7 +26,8 @@ TTimerRf::TTimerRf(QWidget *parent)  : QMainWindow(parent)
   //slot_writeSettings();
 
   modifyData=false;
-
+  dev=new THwBehave;
+  dev->start(QThread::NormalPriority);
   setMinimumSize(800,600);
   //showMaximized();
   resize(800,600);
@@ -41,6 +41,7 @@ TTimerRf::~TTimerRf()
   for(int i=0;i<8;i++) {
     delete itemTable[0][i];
   }
+  delete dev;
 }
 void TTimerRf::keyPressEvent(QKeyEvent *event)
 {
@@ -236,7 +237,7 @@ void TTimerRf::slot_updateDateTime()
     workfile_label->setText("Work file:  ");
     QStringList sl;
 
-    qDebug()<<"STATUS"<<sl;
+    //qDebug()<<"STATUS"<<sl;
     if(!sl.empty()){
       status_Label->setText(" Status: "+sl[2]);
       err_Label->setText(" Error: "+sl[1]);
@@ -247,23 +248,6 @@ void TTimerRf::slot_updateDateTime()
     }
     timer->start(2000);
 }
-
-
-
-//-----------------------------------------------------------------------------
-//--- public slot readSettings()
-//-----------------------------------------------------------------------------
-void TTimerRf::slot_readSettings(void)
-{
-  QString dir_path = qApp->applicationDirPath();
-  QSettings setup(dir_path+"/setup.ini", QSettings::IniFormat);
-  bool ok;
-  serialPort=setup.value("port","ttyS0").toString();
-  serialSpeed=setup.value("speed",9600).toInt(&ok); if(!ok)serialSpeed=QSerialPort::Baud9600;
-
-  for(int i=0;i<ALLVECTORS;i++) { data[0][i]=0;}
-}
-
 
 
 

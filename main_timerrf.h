@@ -3,7 +3,7 @@
 
 
 #include <QtWidgets>
-
+#include "hwBehave.h"
 
 //------------------------------------------------------
 #define MAXTIME 500
@@ -63,17 +63,14 @@ private:
     QString LanguageApp;            // language application
 
     QTableWidgetItem *itemTable[1][ALLVECTORS];
-    QString serialPort;
-    int serialSpeed;
 
     double data[1][ALLVECTORS];
 
     bool modifyData;
-
+    THwBehave *dev;
 public slots:
 
     void slot_updateDateTime(void);
-    void slot_readSettings(void);
     void slot_alarmWriteAnswer(void);
 
 
