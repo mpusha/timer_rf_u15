@@ -27,7 +27,8 @@ TTimerRf::TTimerRf(QWidget *parent)  : QMainWindow(parent)
 
   modifyData=false;
   dev=new THwBehave;
-  dev->start(QThread::NormalPriority);
+  connect(dev, SIGNAL(signalMsg(QString,int)), this, SLOT(slot_ProcessMsg(QString,int)));
+  //dev->start(QThread::NormalPriority);
   setMinimumSize(800,600);
   //showMaximized();
   resize(800,600);
@@ -263,3 +264,13 @@ void TTimerRf::slot_alarmWriteAnswer()
   timer->start(2000);
 }
 
+void TTimerRf::slot_ProcessMsg(QString msg, int code)
+{
+  if(code==2){
+    QMessageBox msgBox;
+    msgBox.setIcon(QMessageBox::Critical);
+    msgBox.setText(msg);
+    msgBox.exec();
+    qApp->closeAllWindows();
+  }
+}

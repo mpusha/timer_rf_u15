@@ -12,7 +12,7 @@
 #include <QMutex>
 #include <QDebug>
 #include <QWaitCondition>
-#include <QSerialPort>
+#include <qt5/QtSerialPort/QSerialPort>
 #include <QDataStream>
 #include <QByteArray>
 
@@ -68,6 +68,8 @@ public:
 
 public slots:
   void timeAlarm(void);
+private slots:
+  void slotTimerEnable(bool);
 
 protected:
     void run();
@@ -82,15 +84,17 @@ private:
   QString serialPort;
   int serialSpeed;
 // process state machine
-  CPhase phase,nextPhase;
+  CPhase phase;
   CPhase allStates[ALLREQSTATES];
-  bool abort,timerAlrm;
+  bool abort;
   QTimer *tAlrm;
   QMutex mutex;
   QWaitCondition condition;
 
 signals:
   void disableNW_thread(THwBehave *);
+  void signalTimerEnable(bool);
+  void signalMsg(QString,int);
 
 };
 

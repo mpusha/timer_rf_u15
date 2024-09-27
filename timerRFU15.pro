@@ -9,7 +9,7 @@
 # https://ru.stackoverflow.com/questions/640787/%D0%A1%D1%82%D0%B8%D0%BB%D1%8C-%D0%BA%D0%BE%D0%BC%D0%BC%D0%B8%D1%82%D0%BE%D0%B2-%D0%B2-git
 # https://docs.google.com/document/d/1QrDFcIiPjSLDn3EL15IJygNPiHORgU1_OOAqWjiDU5Y/edit#heading=h.uyo6cb12dt6w
 QT += core gui
-QT+=serialport
+QT += serialport
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 TARGET = timerrf

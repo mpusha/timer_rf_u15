@@ -2,7 +2,7 @@
 #define MAIN_TRF_H
 
 
-#include <QtWidgets>
+#include <qt5/QtWidgets/QtWidgets>
 #include "hwBehave.h"
 
 //------------------------------------------------------
@@ -72,7 +72,7 @@ public slots:
 
     void slot_updateDateTime(void);
     void slot_alarmWriteAnswer(void);
-
+    void slot_ProcessMsg(QString,int);
 
 protected:
 

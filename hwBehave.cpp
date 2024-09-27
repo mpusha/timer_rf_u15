@@ -3,7 +3,6 @@
 
 #include "hwBehave.h"
 
-
 /**
  * @brief TDtBehave::TDtBehave
  * @param nPort
@@ -20,14 +19,13 @@ THwBehave::THwBehave()
   qDebug()<<"Start constructor of object THwBehave";
 
   tAlrm=new QTimer();
-  timerAlrm=false;
   reInit=true; // reinit timer (get version, read data)
   readSettings();
+
   connect(tAlrm,SIGNAL(timeout()),this,SLOT(timeAlarm()));
   tAlrm->start(SAMPLE_DEVICE); //start timer for sample device
-  phase=INITIAL_STATE;
-  abort=false;
-  timerAlrm=true;
+  start(QThread::NormalPriority);
+  connect(this, SIGNAL(signalTimerEnable(bool)), this, SLOT(slotTimerEnable(bool)));
   qDebug()<<"End constructor of object THwBehave";
 }
 
@@ -57,7 +55,7 @@ THwBehave::~THwBehave()
 // qDebug operator owerwrite for print states in debug mode
 QDebug operator <<(QDebug dbg, const CPhase &t)
 {
-  dbg.nospace() <<t<<"STATE=";
+  dbg.nospace() <<"STATE="<<(int) t;
   switch(t){
   case READY: dbg.space()                  << "READY" ; break;
   case IDLE: dbg.space()                   << "IDLE" ; break;
@@ -85,13 +83,10 @@ void THwBehave::setErrorSt(short int st)
 //-----------------------------------------------------------------------------
 void THwBehave::timeAlarm(void)
 {
-  qDebug()<<"Timer"<<timerAlrm;
-  if(timerAlrm)
-  {
-    allStates[GETSTATUS_STATE]=GETSTATUS_STATE;
-    timerAlrm=false;
-    condition.wakeOne();
-  }
+  qDebug()<<"Timer";
+
+  allStates[GETSTATUS_STATE]=GETSTATUS_STATE;
+  condition.wakeOne();
 }
 
 //-----------------------------------------------------------------------------
@@ -99,12 +94,13 @@ void THwBehave::timeAlarm(void)
 //-----------------------------------------------------------------------------
 void THwBehave::run()
 {
-
-  qDebug()<<"Start run() cycle of object TDtBehave";
+  abort=false;
+  phase=INITIAL_STATE;
+  for(int i=0;i<ALLREQSTATES;i++) allStates[i]=READY;
+  emit signalTimerEnable(true);
+  qDebug()<<"Start run() cycle of object THwBehave";
   int repInit=3;
-  CPhase deb=phase;//for debug only
-
-  msleep(1000); // wait if devise turn on in this time
+  CPhase deb=READY;//for debug only
   //QEventLoop loop;
   while(!abort) { // run until destructor not set abort
     mutex.lock();
@@ -118,35 +114,26 @@ void THwBehave::run()
       }
     }
     if(phase==READY){
-      //msleep(5);
-      phase=IDLE;condition.wait((&mutex));phase=READY;
+      phase=IDLE;
+      condition.wait((&mutex));
+      phase=READY;
     }
     mutex.unlock();
+
     if(deb!=phase) { qDebug()<<phase;deb=phase;}
     switch(phase) {
       default: {
         for(int i=0;i<ALLREQSTATES;i++) allStates[i]=READY;
         phase = INITIAL_STATE;
-        nextPhase=READY;
         break;
       }
       case READY:{
         break;
       }
-      case TIMER_START_STATE:{
-        timerAlrm=true;
-        phase=READY;
-        break;
-      }
-      case TIMER_STOP_STATE:{
-        timerAlrm=false;
-        phase=READY;
-        break;
-      }
+
 // Sample device request from timer
       case GETSTATUS_STATE: {
         //getInfoData();
-        timerAlrm=true; // can get data again
         if(reInit) { phase=GETINFO_STATE; break; }
         allStates[GETSTATUS_STATE]=READY; // reset state
         phase = READY;
@@ -164,12 +151,11 @@ void THwBehave::run()
       case INITIAL_STATE: {
         int err=initialDevice();
         if(err) {
-
+          emit signalMsg("Can't find serial device. Reboot computer.",2);
           phase=GLOBAL_ERROR_STATE;
         }
         else {
           phase = READY;
-
         }
         break;
       }// end case INITIAL_STATE:
@@ -186,10 +172,9 @@ void THwBehave::run()
           phase=DEVICE_ERROR_STATE;
         }
         else {
-          timerAlrm=true;
+
           repInit=1;
           phase = READY;
-          nextPhase=READY;
         }
         break;
       }//end case GETINFO_STATE:
@@ -212,6 +197,7 @@ void THwBehave::run()
     } // End Switch main state machine--------------------------------------------------------------------------------------------------------------
     if(abort) break;
   }
+  emit signalTimerEnable(false);
   qDebug()<<"End run() cycle of object THwBehave";
 }
 
@@ -233,7 +219,7 @@ void THwBehave::readSettings(void)
 //-----------------------------------------------------------------------------
 int THwBehave::initialDevice(void)
 {
-
+  return 1;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -242,6 +228,11 @@ int THwBehave::initialDevice(void)
 int THwBehave::getInfoDevice()
 {
 
-  //qDebug()<<map_InfoDevice;
+  return 0;
 }
 
+// private slots
+void THwBehave::slotTimerEnable(bool en)
+{
+  if(en) tAlrm->start(SAMPLE_DEVICE); else tAlrm->stop();
+}
