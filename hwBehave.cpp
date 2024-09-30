@@ -203,7 +203,6 @@ void THwBehave::readSettings(void)
   bool ok;
   serialPortName=setup.value("port","ttyS0").toString();
   serialSpeed=setup.value("speed",9600).toInt(&ok); if(!ok) serialSpeed=QSerialPort::Baud9600;
-  qDebug()<<serialPortName<<serialSpeed;
 }
 
 //================= DEVICE PART ================================================================================================================
@@ -262,24 +261,25 @@ void THwBehave::slotTimerEnable(bool en)
 int THwBehave::testAlive(void)
 {
   int codret=0;
+  char bf=0;
+  int i=0;
 
-  //if(!canOperate) return ERR_SETUP_ADDR;
   QString cmd=QString("%1:%2").arg(address,2,10,QChar('0')).arg("AL");
   QString answer;
-  answer.clear();
+
   serial->write(cmd.toLocal8Bit().data(),cmd.size()+1);
   if (!serial->waitForBytesWritten(SERIAL_TOUT)) return ERR_UART_TRANS;
   // read response
-  if (serial->waitForReadyRead(SERIAL_TOUT)) {
-    QByteArray responseData = serial->readAll();
-    answer=QString(responseData);
-    while (serial->waitForReadyRead(UART_SHORT_TOUT)){
-      responseData += serial->readAll();
-      answer+=QString(responseData);
-    }
+  answer.clear();
+  while(1){
+    if(!serial->waitForReadyRead(SERIAL_TOUT)) return ERR_UART_TOUT;
+    serial->read(&bf,1);
+    if(!bf) break;
+    answer.append(bf);
+    i++;
+    if(i>=32) { serial->flush(); break; }
   }
-  else
-    return ERR_UART_TOUT;
+
   QStringList rdata;
   bool ok;
   rdata.clear();
@@ -290,5 +290,116 @@ int THwBehave::testAlive(void)
   if(addr_c!=address) return ERR_IDATA_ADDR;  // address none correct
   codret=rdata.at(1).toInt(&ok);
   if(!ok) return ERR_IDATA_DATA;
+  if(codret) return ERR_BAD;
   return ERR_NONE;
+}
+
+int THwBehave::sendCmd(QString cmd)
+{
+  serial->write(cmd.toLocal8Bit().data(),cmd.size()+1);
+  if (!serial->waitForBytesWritten(SERIAL_TOUT)) return ERR_UART_TRANS;
+  return ERR_NONE;
+}
+
+int THwBehave::readAnswer(QString& answer)
+{
+  char bf=0;
+  int i=0;
+  answer.clear();
+  while(1){
+    if(!serial->waitForReadyRead(SERIAL_TOUT)) return ERR_UART_TOUT;
+    serial->read(&bf,1);
+    if(!bf) break;
+    answer.append(bf);
+    i++;
+    if(i>=32) { serial->flush(); break; }
+  }
+
+  return ERR_NONE;
+}
+int THwBehave::readStr(QString cmd,QString& ans)
+{
+  QString sendStr;
+  int ret=0;
+  QString answer;
+  QStringList rdata;
+  bool ok;
+
+  sendStr=QString("%1:%2").arg(address,2,10,QChar('0')).arg(cmd);
+  for(int i=0;i<REP;i++){
+    msleep(RS_DELAY);
+    ret=sendCmd(sendStr);
+    if(ret!=ERR_NONE) { serial->flush(); continue; }
+    ret=readAnswer(answer);
+    if(ret!=ERR_NONE) { serial->flush(); continue; }
+    rdata.clear();
+    rdata=answer.simplified().split(':');
+    if(rdata.count()<2) {ret=ERR_IDATA_CNT; continue; } // no all data
+    int addr=rdata.at(0).toInt(&ok);
+    if(!ok) {ret=ERR_IDATA_ADDR; continue; }
+    if(addr!=address) {ret=ERR_IDATA_ADDR; continue; } // address none correct
+    ans=rdata.at(0) ;
+    break;
+  }
+  return ret;
+}
+// read timer channel setup value
+int THwBehave::readData(QString cmd,int ch,int *readData)
+{
+  QString sendStr;
+  int ret=0;
+  QString answer;
+  QStringList rdata;
+  bool ok;
+
+  sendStr=QString("%1:%2 %3").arg(address,2,10,QChar('0')).arg(cmd).arg(ch);
+  for(int i=0;i<REP;i++){
+    msleep(RS_DELAY);
+    ret=sendCmd(sendStr);
+    if(ret!=ERR_NONE) { serial->flush(); continue; }
+    ret=readAnswer(answer);
+    if(ret!=ERR_NONE) { serial->flush(); continue; }
+    rdata.clear();
+    rdata=answer.simplified().split(':');
+    if(rdata.count()<2) {ret=ERR_IDATA_CNT; continue; } // no all data
+    int addr=rdata.at(0).toInt(&ok);
+    if(!ok) {ret=ERR_IDATA_ADDR; continue; }
+    if(addr!=address) {ret=ERR_IDATA_ADDR; continue; } // address none correct
+    int codret=rdata.at(1).toInt(&ok);
+    if(!ok) {ret=ERR_IDATA_CRET; continue; }
+    *readData=codret;
+    if(codret) { ret=codret; continue; } //uc  error
+    break;
+  }
+  return ret;
+}
+
+int THwBehave::writeData(QString cmd,int ch, int data)
+{
+
+  QString sendStr;
+  int ret=0;
+  sendStr=QString("%1:%2 %3 %4").arg(address,2,10,QChar('0')).arg(cmd).arg(ch).arg(data);
+
+  QString answer;
+  QStringList rdata;
+  bool ok;
+  for(int i=0;i<REP;i++){
+    msleep(RS_DELAY);
+    ret=sendCmd(sendStr);
+    if(ret!=ERR_NONE) { serial->flush(); continue; }
+    ret=readAnswer(answer);
+    if(ret!=ERR_NONE) { serial->flush(); continue; }
+    rdata.clear();
+    rdata=answer.split(':');
+    if(rdata.count()<2) {ret=ERR_IDATA_CNT; continue; } // no all data
+    int addr=rdata.at(0).toInt(&ok);
+    if(!ok) {ret=ERR_IDATA_ADDR; continue; }
+    if(addr!=address) {ret=ERR_IDATA_ADDR; continue; } // address none correct
+    int codret=rdata.at(1).toInt(&ok);
+    if(!ok) {ret=ERR_IDATA_CRET; continue; }
+    if(codret) { ret=codret; continue; } //uc  error;
+    break;
+  }
+  return ret;
 }

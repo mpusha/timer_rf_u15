@@ -35,7 +35,7 @@
 // 4 - ошибка при записи в HW (считались данные не соответствующие записываемым)
 #define ERR_UART_ABS 8     // отсутствует порт UART. Ошибка инициализации устройства
 #define ERR_UART_TRANS 9   // ошибка отправки сообщения
-#define ERR_UART_TOUT  10  // при приеме произоше таймаут UART_TIMEOUT определенный в serial.h
+#define ERR_UART_TOUT  10  // при приеме произоше таймаут UART_TIMEOUT
 #define ERR_IDATA_CNT 11   // принято колличество данных менее ожидаемого
 #define ERR_IDATA_ADDR 12  // приятый адрес не является числом
 #define ERR_IDATA_CRET 13  // принятые данные не являются числом
@@ -43,14 +43,12 @@
 #define ERR_SETUP_ADDR 15  // адрес устройства не установлен, или выходит из диапазона 0-99
 #define ERR_SETUP_CH 16    // устанавливаемый канал таймера выходит из диапазона 1-16, либо не установлен
 #define ERR_SETUP_DATA 17  // устанавливаоемое время запуска или длительность выходного имульса выходит из диапазона MINDATA-MAXDATA MINWIDTH-MAXWIDTH
-#define ERR_FILE_WRITE 18  // ошибка открытия файла на запись при чтении данных из таймера
-#define ERR_FILE_READ 19   // ошибка открытия файла на чтение при записи данных в таймер
-#define ERR_FILE_SETUP_ABS 20 // отсутствует файл setup.xms in settings
-#define ERR_FILE_SETTINGS 21  // ошибка в файле с установками либо он отсутстве
+#define ERR_BAD        18  //
 
 #define TADDR 1
 #define SERIAL_TOUT 500
 #define UART_SHORT_TOUT 50L
+#define RS_DELAY 5
 /**
 */
 typedef enum
@@ -79,7 +77,7 @@ public:
   THwBehave();
   ~THwBehave();
   void readSettings(void);
-  int testAlive(void);
+
 // global error function
 
 
@@ -120,8 +118,14 @@ private:
   QMutex mutex;
   QWaitCondition condition;
 
+  int testAlive(void);
+  int sendCmd(QString cmd);
+  int readAnswer(QString& answer);
+  int readStr(QString cmd,QString& ans);
+  int readData(QString cmd,int ch,int *readData);
+  int writeData(QString cmd,int ch, int data);
+
 signals:
-  void disableNW_thread(THwBehave *);
   void signalTimerEnable(bool);
   void signalMsg(QString,int);
 
