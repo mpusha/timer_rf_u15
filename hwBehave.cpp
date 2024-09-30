@@ -21,7 +21,8 @@ THwBehave::THwBehave()
   tAlrm=new QTimer();
   reInit=true; // reinit timer (get version, read data)
   readSettings();
-
+  serial=0;
+  address=TADDR;
   connect(tAlrm,SIGNAL(timeout()),this,SLOT(timeAlarm()));
   tAlrm->start(SAMPLE_DEVICE); //start timer for sample device
   start(QThread::NormalPriority);
@@ -47,7 +48,7 @@ THwBehave::~THwBehave()
     terminate();
     wait(1000);
   }
-
+  if(serial) delete serial;
   qDebug()<<"End destructor of object THwBehave";
 }
 
@@ -95,9 +96,9 @@ void THwBehave::timeAlarm(void)
 void THwBehave::run()
 {
   abort=false;
+  serial=new QSerialPort();
   phase=INITIAL_STATE;
   for(int i=0;i<ALLREQSTATES;i++) allStates[i]=READY;
-  emit signalTimerEnable(true);
   qDebug()<<"Start run() cycle of object THwBehave";
   int repInit=3;
   CPhase deb=READY;//for debug only
@@ -130,60 +131,42 @@ void THwBehave::run()
       case READY:{
         break;
       }
-
-// Sample device request from timer
-      case GETSTATUS_STATE: {
-        //getInfoData();
-        if(reInit) { phase=GETINFO_STATE; break; }
-        allStates[GETSTATUS_STATE]=READY; // reset state
-        phase = READY;
-        break;
-      }//end case GETPARREQ_STATE:
-
-// Found global error. Server can't work property. Wait until restart INITIAL_STATE
-      case GLOBAL_ERROR_STATE: {
-        abort=true;
-        msleep(200);
-        break;
-      }//end case GLOBAL_ERROR_STATE
-
-// connect to device and get simple information
+// connect to serial port
       case INITIAL_STATE: {
         int err=initialDevice();
         if(err) {
-          emit signalMsg("Can't find serial device. Reboot computer.",2);
+          emit signalMsg("Can't find serial device "+serialPortName+" Reboot computer.",2);
           phase=GLOBAL_ERROR_STATE;
         }
         else {
           phase = READY;
+          emit signalTimerEnable(true);
         }
         break;
       }// end case INITIAL_STATE:
-
 //  get info about device
       case GETINFO_STATE: {
-
         int err=getInfoDevice();
-        //setErrorSt(::CODEERR::NONE);
-       // timerAlrm=true;
-
         if(err){
-
           phase=DEVICE_ERROR_STATE;
+          emit signalMsg(QString("Can't find timer. Error code %1 ").arg(err),1);
         }
         else {
-
           repInit=1;
           phase = READY;
         }
         break;
       }//end case GETINFO_STATE:
-
+// Found global error. Server can't work property. Wait until restart INITIAL_STATE
+      case GLOBAL_ERROR_STATE: {
+        abort=true;
+        msleep(20);
+        break;
+      }//end case GLOBAL_ERROR_STATE
 // processing hardware errors in device (CAN, bulk)
       case DEVICE_ERROR_STATE:{
-
         if(repInit==3) {
-          phase = INITIAL_STATE;
+          phase = GETINFO_STATE;
           repInit=2;
         }
         else if(repInit==2) {
@@ -194,10 +177,19 @@ void THwBehave::run()
        // nextPhase=READY;
         break;
       }// end case DEVICE_ERROR_STATE:
+// Sample device request from timer
+      case GETSTATUS_STATE: {
+        //getInfoData();
+        if(reInit) { phase=GETINFO_STATE; break; }
+         allStates[GETSTATUS_STATE]=READY; // reset state
+         phase = READY;
+         break;
+      }//end case GETPARREQ_STATE:
     } // End Switch main state machine--------------------------------------------------------------------------------------------------------------
     if(abort) break;
   }
   emit signalTimerEnable(false);
+  serial->close();
   qDebug()<<"End run() cycle of object THwBehave";
 }
 
@@ -209,8 +201,9 @@ void THwBehave::readSettings(void)
   QString dir_path = qApp->applicationDirPath();
   QSettings setup(dir_path+"/setup.ini", QSettings::IniFormat);
   bool ok;
-  serialPort=setup.value("port","ttyS0").toString();
-  serialSpeed=setup.value("speed",9600).toInt(&ok); if(!ok)serialSpeed=QSerialPort::Baud9600;
+  serialPortName=setup.value("port","ttyS0").toString();
+  serialSpeed=setup.value("speed",9600).toInt(&ok); if(!ok) serialSpeed=QSerialPort::Baud9600;
+  qDebug()<<serialPortName<<serialSpeed;
 }
 
 //================= DEVICE PART ================================================================================================================
@@ -219,7 +212,13 @@ void THwBehave::readSettings(void)
 //-----------------------------------------------------------------------------
 int THwBehave::initialDevice(void)
 {
-  return 1;
+  serial->setPortName(serialPortName);
+  serial->setBaudRate(serialSpeed);
+
+ if (!serial->open(QIODevice::ReadWrite)) {
+   return 1;
+ }
+  return 0;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -227,12 +226,69 @@ int THwBehave::initialDevice(void)
 //-------------------------------------------------------------------------------------------------
 int THwBehave::getInfoDevice()
 {
+  // write request
+  /*
+  const QByteArray requestData = QString("%1%2\0").arg(TADDR).arg("FW").toLocal8Bit();
+  serial.write(requestData);
+  if (serial.waitForBytesWritten(SERIAL_TOUT)) {
+      // read response
+      if (serial.waitForReadyRead(SERIAL_TOUT)) {
+        QByteArray responseData = serial.readAll();
+        while (serial.waitForReadyRead(10))
+          responseData += serial.readAll();
 
-  return 0;
+          const QString response = QString::fromUtf8(responseData);
+          emit this->response(response);
+      } else {
+          emit timeout(tr("Wait read response timeout %1")
+                       .arg(QTime::currentTime().toString()));
+      }
+  } else {
+      emit timeout(tr("Wait write request timeout %1")
+                   .arg(QTime::currentTime().toString()));
+  }
+  */
+  return testAlive();
+
 }
 
 // private slots
 void THwBehave::slotTimerEnable(bool en)
 {
   if(en) tAlrm->start(SAMPLE_DEVICE); else tAlrm->stop();
+}
+
+// return 0 if controller alive
+int THwBehave::testAlive(void)
+{
+  int codret=0;
+
+  //if(!canOperate) return ERR_SETUP_ADDR;
+  QString cmd=QString("%1:%2").arg(address,2,10,QChar('0')).arg("AL");
+  QString answer;
+  answer.clear();
+  serial->write(cmd.toLocal8Bit().data(),cmd.size()+1);
+  if (!serial->waitForBytesWritten(SERIAL_TOUT)) return ERR_UART_TRANS;
+  // read response
+  if (serial->waitForReadyRead(SERIAL_TOUT)) {
+    QByteArray responseData = serial->readAll();
+    answer=QString(responseData);
+    while (serial->waitForReadyRead(UART_SHORT_TOUT)){
+      responseData += serial->readAll();
+      answer+=QString(responseData);
+    }
+  }
+  else
+    return ERR_UART_TOUT;
+  QStringList rdata;
+  bool ok;
+  rdata.clear();
+  rdata=answer.simplified().split(':');
+  if(rdata.count()<2) return ERR_IDATA_CNT;  // no all data
+  int addr_c=rdata.at(0).toInt(&ok);
+  if(!ok) return ERR_IDATA_ADDR;
+  if(addr_c!=address) return ERR_IDATA_ADDR;  // address none correct
+  codret=rdata.at(1).toInt(&ok);
+  if(!ok) return ERR_IDATA_DATA;
+  return ERR_NONE;
 }

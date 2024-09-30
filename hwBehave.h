@@ -12,7 +12,7 @@
 #include <QMutex>
 #include <QDebug>
 #include <QWaitCondition>
-#include <qt5/QtSerialPort/QSerialPort>
+#include <QSerialPort>
 #include <QDataStream>
 #include <QByteArray>
 
@@ -23,6 +23,34 @@
 #define READY_STS "ready"
 #define ERR_STS "error"
 
+
+#define REP 3 // number of repeates
+
+#define ERR_NONE 0
+// from 0 to 7 reserv for uc
+// 0 - отсутствие ошибки
+// 1 - переполнение входного буфера (возможно посылаемвая строка не заканяивается кодом 0)
+// 2 - формат входных данных не соответствует ожидаемому scanf
+// 3 - ошибка во входных данных. Возможен выход из диапазона или отрицательный знак
+// 4 - ошибка при записи в HW (считались данные не соответствующие записываемым)
+#define ERR_UART_ABS 8     // отсутствует порт UART. Ошибка инициализации устройства
+#define ERR_UART_TRANS 9   // ошибка отправки сообщения
+#define ERR_UART_TOUT  10  // при приеме произоше таймаут UART_TIMEOUT определенный в serial.h
+#define ERR_IDATA_CNT 11   // принято колличество данных менее ожидаемого
+#define ERR_IDATA_ADDR 12  // приятый адрес не является числом
+#define ERR_IDATA_CRET 13  // принятые данные не являются числом
+#define ERR_IDATA_DATA 14  // принятые данные не совпадают с записываемыми (при операции проверки)
+#define ERR_SETUP_ADDR 15  // адрес устройства не установлен, или выходит из диапазона 0-99
+#define ERR_SETUP_CH 16    // устанавливаемый канал таймера выходит из диапазона 1-16, либо не установлен
+#define ERR_SETUP_DATA 17  // устанавливаоемое время запуска или длительность выходного имульса выходит из диапазона MINDATA-MAXDATA MINWIDTH-MAXWIDTH
+#define ERR_FILE_WRITE 18  // ошибка открытия файла на запись при чтении данных из таймера
+#define ERR_FILE_READ 19   // ошибка открытия файла на чтение при записи данных в таймер
+#define ERR_FILE_SETUP_ABS 20 // отсутствует файл setup.xms in settings
+#define ERR_FILE_SETTINGS 21  // ошибка в файле с установками либо он отсутстве
+
+#define TADDR 1
+#define SERIAL_TOUT 500
+#define UART_SHORT_TOUT 50L
 /**
 */
 typedef enum
@@ -51,6 +79,7 @@ public:
   THwBehave();
   ~THwBehave();
   void readSettings(void);
+  int testAlive(void);
 // global error function
 
 
@@ -79,9 +108,9 @@ private:
 // Status of device
   QString srvStatus; // status of server start error ready busy
   bool reInit;
-
-
-  QString serialPort;
+  int address;
+  QSerialPort *serial;
+  QString serialPortName;
   int serialSpeed;
 // process state machine
   CPhase phase;

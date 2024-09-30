@@ -31,7 +31,7 @@ TTimerRf::TTimerRf(QWidget *parent)  : QMainWindow(parent)
   //dev->start(QThread::NormalPriority);
   setMinimumSize(800,600);
   //showMaximized();
-  resize(800,600);
+  resize(1024,768);
 }
 
 //-----------------------------------------------------------------------------
@@ -267,10 +267,15 @@ void TTimerRf::slot_alarmWriteAnswer()
 void TTimerRf::slot_ProcessMsg(QString msg, int code)
 {
   if(code==2){
-    QMessageBox msgBox;
-    msgBox.setIcon(QMessageBox::Critical);
-    msgBox.setText(msg);
-    msgBox.exec();
+      QMessageBox::critical(this,"Error",msg);
+    //QMessageBox msgBox;
+
+    //msgBox.setIcon(QMessageBox::Critical);
+    //msgBox.setText(msg);
+    //msgBox.exec();
     qApp->closeAllWindows();
+  }
+  else if(code==1){
+    status_Label->setText(msg);
   }
 }
