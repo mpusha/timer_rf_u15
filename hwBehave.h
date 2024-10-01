@@ -77,6 +77,7 @@ public:
   THwBehave();
   ~THwBehave();
   void readSettings(void);
+  void setState(CPhase state) { mutex.lock(); allStates[state]=state; mutex.unlock(); condition.wakeOne(); }
 
 // global error function
 

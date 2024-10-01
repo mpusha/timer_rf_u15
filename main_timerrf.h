@@ -34,12 +34,9 @@ private:
   QVBoxLayout *main_layout;
   QHBoxLayout *edit_layout,*data_layout,*graph_layout;
   QGroupBox *MainGroupBox;            // Main Box
-  QPushButton *refresh_btn,*save_btn,*savecsv_btn,*read_btn,*mult_btn;
-  QPushButton *undo_btn;
-  QLabel *space_Label,*time1_Label,*workfile_label,*transf_Label,*status_Label,*err_Label,*multCoeffLabel;
+  QPushButton *refresh_btn,*write_btn;
+  QLabel *space_Label,*time_Label,*status_Label,*hwver_Label;
   QTableWidget *tableRf;
-  QDoubleSpinBox *multCoeffSB;
-  QLabel *mode_label;             // Label -> StatusBar
   QMenu *file_menu;
   QAction *exit;
   QFont app_font;                 // Font

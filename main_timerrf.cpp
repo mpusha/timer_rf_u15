@@ -22,16 +22,16 @@ TTimerRf::TTimerRf(QWidget *parent)  : QMainWindow(parent)
   timer->start(2000);
   alarmWrTimer = new QTimer(this);
   connect(alarmWrTimer, SIGNAL(timeout()), this, SLOT(slot_alarmWriteAnswer()));
-  setWindowTitle(tr("Program for setup RF amplitude"));
+  setWindowTitle(tr("Program for setup RF timer"));
   //slot_writeSettings();
 
   modifyData=false;
   dev=new THwBehave;
   connect(dev, SIGNAL(signalMsg(QString,int)), this, SLOT(slot_ProcessMsg(QString,int)));
   //dev->start(QThread::NormalPriority);
-  setMinimumSize(800,600);
+  setMinimumSize(800,320);
   //showMaximized();
-  resize(1024,768);
+  resize(800,320);
 }
 
 //-----------------------------------------------------------------------------
@@ -63,36 +63,13 @@ void TTimerRf::create_ListWidget()
   main_layout->setSpacing(4);
 
   refresh_btn=new QPushButton(tr("Refresh"),this);
-  read_btn=new QPushButton(tr("Load"),this);
-  save_btn=new QPushButton(tr("Save"),this);
-  savecsv_btn=new QPushButton(tr("Execute"),this);
-  mult_btn=new QPushButton(tr("Multiply"),this);
-  undo_btn=new QPushButton(tr("< Undo"),this);
-  undo_btn->setEnabled(false);
- // time1_Label=new QLabel(tr("Time step, ms"),this);
- // transf_Label=new QLabel(tr("Coefficient of transf Vrf/Vgf"),this);
-
-  //coefTransf_Edit=new QSpinBox(this); coefTransf_Edit->setMinimum(1); coefTransf_Edit->setMaximum(10000);
-
-  multCoeffLabel=new QLabel(tr("Multiply coefficien for RF amplitude"));
-  multCoeffSB=new QDoubleSpinBox();
-  multCoeffSB->setSingleStep(0.01);
-  multCoeffSB->setMaximum(2);
-  multCoeffSB->setMinimum(0.1);
-  multCoeffSB->setDecimals(2);
-  multCoeffSB->setValue(1);
+  write_btn=new QPushButton(tr("Write"),this);
 
   edit_layout = new QHBoxLayout;
-  edit_layout->addWidget(read_btn); edit_layout->addStretch(1);
-  edit_layout->addWidget(save_btn); edit_layout->addStretch(1);
-  edit_layout->addWidget(refresh_btn); edit_layout->addStretch(1);
-  edit_layout->addWidget(undo_btn); edit_layout->addStretch(1);
-  edit_layout->addWidget(savecsv_btn); edit_layout->addStretch(1);
-  edit_layout->addWidget(multCoeffLabel); //edit_layout->addStretch(1);
-  edit_layout->addWidget(multCoeffSB); edit_layout->addStretch(1);
-  edit_layout->addWidget(mult_btn); edit_layout->addStretch(1);
 
-  //edit_layout->addWidget(transf_Label);edit_layout->addWidget(coefTransf_Edit); edit_layout->addStretch(1);
+  edit_layout->addWidget(refresh_btn); edit_layout->addStretch(1);
+  edit_layout->addWidget(write_btn); edit_layout->addStretch(1);
+
   edit_layout->setSpacing(10);
 
   data_layout=new QHBoxLayout;
@@ -131,12 +108,9 @@ void TTimerRf::create_ListWidget()
    tableRf->setColumnWidth(i,80);
  }
  putDataToTable();
- connect(refresh_btn,SIGNAL(pressed()), this, SLOT(slot_plotGraph()));
- connect(save_btn,SIGNAL(pressed()), this, SLOT(slot_saveDataFile()));
- connect(read_btn,SIGNAL(pressed()), this, SLOT(slot_readDataFile()));
- connect(savecsv_btn,SIGNAL(pressed()), this, SLOT(slot_saveCSVDataFile()));
- connect(mult_btn,SIGNAL(pressed()), this, SLOT(slot_multData()));
- connect(undo_btn,SIGNAL(pressed()), this, SLOT(slot_undoData()));
+ connect(refresh_btn,SIGNAL(pressed()), this, SLOT(slot_updateHW()));
+ connect(write_btn,SIGNAL(pressed()), this, SLOT(slot_writeHW()));
+
 }
 
 void TTimerRf::putDataToTable(void)
@@ -186,28 +160,23 @@ void TTimerRf::create_Menu()
 //-----------------------------------------------------------------------------
 void TTimerRf::create_StatusBar()
 {
-  mode_label = new QLabel(this);
+  time_Label = new QLabel(this);
 
-  mode_label->setFixedWidth(240);
-  mode_label->setAlignment(Qt::AlignCenter);
+  time_Label->setFixedWidth(220);
+  time_Label->setAlignment(Qt::AlignLeft);
 
   QLabel *version_label = new QLabel(this);
   version_label->setFrameStyle(QFrame::Panel | QFrame::Sunken);
   version_label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-  version_label->setText("ver. " + QCoreApplication::applicationVersion() + " ");
+  version_label->setText("Program version: " + QCoreApplication::applicationVersion() + " ");
 
-  workfile_label = new QLabel(this);
-  workfile_label->setFrameStyle(QFrame::Panel | QFrame::Sunken);
-  workfile_label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
   status_Label=new QLabel(tr("Start program"),this);
   status_Label->setFrameStyle(QFrame::Panel | QFrame::Sunken);
-  err_Label=new QLabel(tr("unknown"),this);
-  err_Label->setFrameStyle(QFrame::Panel | QFrame::Sunken);
-  statusBar()->addWidget(mode_label);
-  statusBar()->addWidget(workfile_label,1);
-
-  statusBar()->addWidget(status_Label,1);
-  statusBar()->addWidget(err_Label,1);
+  hwver_Label=new QLabel(tr("HW version: unknown"),this);
+  hwver_Label->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+  statusBar()->addWidget(time_Label,1);
+  statusBar()->addWidget(status_Label,2);
+  statusBar()->addWidget(hwver_Label,1);
   statusBar()->addWidget(version_label,1);
 
   QFont font = app_font;
@@ -233,18 +202,17 @@ void TTimerRf::slot_updateDateTime()
 {
     timer->stop();
     QString tim = QDateTime::currentDateTime().toString(" d MMMM dddd yyyy, h:mm:ss ");
-    mode_label->setText(tim);
+    time_Label->setText(tim);
 
-    workfile_label->setText("Work file:  ");
+
     QStringList sl;
 
     //qDebug()<<"STATUS"<<sl;
     if(!sl.empty()){
       status_Label->setText(" Status: "+sl[2]);
-      err_Label->setText(" Error: "+sl[1]);
+      hwver_Label->setText(" Error: "+sl[1]);
       if(sl[3]=='0') {
         alarmWrTimer->stop();
-        savecsv_btn->setEnabled(true);
       }
     }
     timer->start(2000);
@@ -258,9 +226,8 @@ void TTimerRf::slot_alarmWriteAnswer()
   alarmWrTimer->stop();
   timer->stop();
   status_Label->setText(" Status: Data don't writen");
-  err_Label->setText(" Error: HW error");
+  hwver_Label->setText(" Error: HW error");
   QMessageBox::warning(this,"error",tr("Can't write data into HW"));
-  savecsv_btn->setEnabled(true);
   timer->start(2000);
 }
 
