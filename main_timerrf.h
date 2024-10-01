@@ -70,6 +70,7 @@ public slots:
     void slot_updateDateTime(void);
     void slot_alarmWriteAnswer(void);
     void slot_ProcessMsg(QString,int);
+    void slot_updateHW(void);
 
 protected:
 

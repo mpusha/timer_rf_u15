@@ -136,9 +136,6 @@ void TTimerRf::getDataFromTable(void)
   }
 }
 
-
-
-
 //-----------------------------------------------------------------------------
 //--- create Menu
 //-----------------------------------------------------------------------------
@@ -162,7 +159,7 @@ void TTimerRf::create_StatusBar()
 {
   time_Label = new QLabel(this);
 
-  time_Label->setFixedWidth(220);
+  time_Label->setFixedWidth(150);
   time_Label->setAlignment(Qt::AlignLeft);
 
   QLabel *version_label = new QLabel(this);
@@ -189,9 +186,9 @@ void TTimerRf::create_StatusBar()
 //-----------------------------------------------------------------------------
 void TTimerRf::Sleep(int ms)
 {
-    QEventLoop loop;
-    QTimer::singleShot(ms, &loop, SLOT(quit()));
-    loop.exec();
+  QEventLoop loop;
+  QTimer::singleShot(ms, &loop, SLOT(quit()));
+  loop.exec();
 }
 
 //------------------------------ SLOTS ----------------------------------------
@@ -200,22 +197,9 @@ void TTimerRf::Sleep(int ms)
 //-----------------------------------------------------------------------------
 void TTimerRf::slot_updateDateTime()
 {
-    timer->stop();
-    QString tim = QDateTime::currentDateTime().toString(" d MMMM dddd yyyy, h:mm:ss ");
-    time_Label->setText(tim);
-
-
-    QStringList sl;
-
-    //qDebug()<<"STATUS"<<sl;
-    if(!sl.empty()){
-      status_Label->setText(" Status: "+sl[2]);
-      hwver_Label->setText(" Error: "+sl[1]);
-      if(sl[3]=='0') {
-        alarmWrTimer->stop();
-      }
-    }
-    timer->start(2000);
+  //QString tim = QDateTime::currentDateTime().toString(" d MMMM dddd yyyy, h:mm:ss ");
+  QString tim = QDateTime::currentDateTime().toString(" d MMMM yyyy, h:mm ");
+  time_Label->setText(tim);
 }
 
 
@@ -233,8 +217,13 @@ void TTimerRf::slot_alarmWriteAnswer()
 
 void TTimerRf::slot_ProcessMsg(QString msg, int code)
 {
-  if(code==2){
-      QMessageBox::critical(this,"Error",msg);
+  if(code==2) {
+    status_Label->setText(msg);
+    QTimer::singleShot(10000, qApp, SLOT(closeAllWindows()));
+    QMessageBox::critical(this,"Error",msg);
+      //QEventLoop loop;
+
+      //loop.exec();
     //QMessageBox msgBox;
 
     //msgBox.setIcon(QMessageBox::Critical);
@@ -245,4 +234,9 @@ void TTimerRf::slot_ProcessMsg(QString msg, int code)
   else if(code==1){
     status_Label->setText(msg);
   }
+}
+
+void TTimerRf::slot_updateHW(void)
+{
+   dev->setState(UPDATE_STATE);
 }

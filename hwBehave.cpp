@@ -56,10 +56,11 @@ THwBehave::~THwBehave()
 // qDebug operator owerwrite for print states in debug mode
 QDebug operator <<(QDebug dbg, const CPhase &t)
 {
-  dbg.nospace() <<"STATE="<<(int) t;
+  dbg.nospace() <<"STATE=";
   switch(t){
   case READY: dbg.space()                  << "READY" ; break;
   case IDLE: dbg.space()                   << "IDLE" ; break;
+  case UPDATE_STATE: dbg.space()           << "UPDATE HW INFO" ; break;
   case GETSTATUS_STATE: dbg.space()        << "GETSTATUS_STATE" ; break;
   case INITIAL_STATE: dbg.space()          << "INITIAL_STATE" ; break;
   case GLOBAL_ERROR_STATE: dbg.space()     << "GLOBAL_ERROR_STATE" ; break;
@@ -180,11 +181,16 @@ void THwBehave::run()
 // Sample device request from timer
       case GETSTATUS_STATE: {
         //getInfoData();
-        if(reInit) { phase=GETINFO_STATE; break; }
+        //if(reInit) { phase=GETINFO_STATE; break; }
          allStates[GETSTATUS_STATE]=READY; // reset state
          phase = READY;
          break;
       }//end case GETPARREQ_STATE:
+      case UPDATE_STATE: {
+        allStates[UPDATE_STATE]=READY;
+        phase=GETINFO_STATE;
+        break;
+      }
     } // End Switch main state machine--------------------------------------------------------------------------------------------------------------
     if(abort) break;
   }
@@ -215,7 +221,7 @@ int THwBehave::initialDevice(void)
   serial->setBaudRate(serialSpeed);
 
  if (!serial->open(QIODevice::ReadWrite)) {
-   return 1;
+   return 0;
  }
   return 0;
 }
@@ -224,7 +230,7 @@ int THwBehave::initialDevice(void)
 //--- Get information about device
 //-------------------------------------------------------------------------------------------------
 int THwBehave::getInfoDevice()
-{
+{ return 0;
   // write request
   /*
   const QByteArray requestData = QString("%1%2\0").arg(TADDR).arg("FW").toLocal8Bit();

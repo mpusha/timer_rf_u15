@@ -56,6 +56,7 @@ typedef enum
   GETSTATUS_STATE,
   WRITE_STATE,
   READ_STATE,
+  UPDATE_STATE,
   TIMER_START_STATE,
   TIMER_STOP_STATE,
   ALLREQSTATES,    //limiter on process request states
