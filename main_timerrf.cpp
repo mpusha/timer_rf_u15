@@ -234,6 +234,9 @@ void TTimerRf::slot_ProcessMsg(QString msg, int code)
   else if(code==1){
     status_Label->setText(msg);
   }
+  else if(code==0) {
+    hwver_Label->setText("HW version: "+msg);
+  }
 }
 
 void TTimerRf::slot_updateHW(void)

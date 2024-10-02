@@ -140,7 +140,7 @@ void THwBehave::run()
           phase=GLOBAL_ERROR_STATE;
         }
         else {
-          phase = READY;
+          phase = GETINFO_STATE;
           emit signalTimerEnable(true);
         }
         break;
@@ -221,7 +221,7 @@ int THwBehave::initialDevice(void)
   serial->setBaudRate(serialSpeed);
 
  if (!serial->open(QIODevice::ReadWrite)) {
-   return 0;
+   return 1;
  }
   return 0;
 }
@@ -230,7 +230,7 @@ int THwBehave::initialDevice(void)
 //--- Get information about device
 //-------------------------------------------------------------------------------------------------
 int THwBehave::getInfoDevice()
-{ return 0;
+{
   // write request
   /*
   const QByteArray requestData = QString("%1%2\0").arg(TADDR).arg("FW").toLocal8Bit();
@@ -253,8 +253,13 @@ int THwBehave::getInfoDevice()
                    .arg(QTime::currentTime().toString()));
   }
   */
+  QString ver;
+  int ff;
+  if(ff=readStr("GF",ver)) emit signalMsg("unknown",0);
+  else
+    emit signalMsg(ver,0);
+qDebug()<<ver;
   return testAlive();
-
 }
 
 // private slots
@@ -270,22 +275,22 @@ int THwBehave::testAlive(void)
   char bf=0;
   int i=0;
 
-  QString cmd=QString("%1:%2").arg(address,2,10,QChar('0')).arg("AL");
+  QString cmd=QString("%1:%2\0").arg(address,2,10,QChar('0')).arg("AL");
   QString answer;
 
   serial->write(cmd.toLocal8Bit().data(),cmd.size()+1);
   if (!serial->waitForBytesWritten(SERIAL_TOUT)) return ERR_UART_TRANS;
   // read response
   answer.clear();
+  //msleep(100);
+  if(!serial->waitForReadyRead(SERIAL_TOUT)) return ERR_UART_TOUT;
   while(1){
-    if(!serial->waitForReadyRead(SERIAL_TOUT)) return ERR_UART_TOUT;
     serial->read(&bf,1);
     if(!bf) break;
     answer.append(bf);
     i++;
     if(i>=32) { serial->flush(); break; }
   }
-
   QStringList rdata;
   bool ok;
   rdata.clear();
@@ -312,9 +317,9 @@ int THwBehave::readAnswer(QString& answer)
   char bf=0;
   int i=0;
   answer.clear();
+  if(!serial->waitForReadyRead(SERIAL_TOUT)) { return ERR_UART_TOUT; }
   while(1){
-    if(!serial->waitForReadyRead(SERIAL_TOUT)) return ERR_UART_TOUT;
-    serial->read(&bf,1);
+    serial->read(&bf,1);// return ERR_UART_TOUT;
     if(!bf) break;
     answer.append(bf);
     i++;
@@ -323,6 +328,7 @@ int THwBehave::readAnswer(QString& answer)
 
   return ERR_NONE;
 }
+
 int THwBehave::readStr(QString cmd,QString& ans)
 {
   QString sendStr;
@@ -344,7 +350,8 @@ int THwBehave::readStr(QString cmd,QString& ans)
     int addr=rdata.at(0).toInt(&ok);
     if(!ok) {ret=ERR_IDATA_ADDR; continue; }
     if(addr!=address) {ret=ERR_IDATA_ADDR; continue; } // address none correct
-    ans=rdata.at(0) ;
+    ans=rdata.at(1) ;
+
     break;
   }
   return ret;
