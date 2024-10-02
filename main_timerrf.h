@@ -35,7 +35,7 @@ private:
   QHBoxLayout *edit_layout,*data_layout,*graph_layout;
   QGroupBox *MainGroupBox;            // Main Box
   QPushButton *refresh_btn,*write_btn;
-  QLabel *space_Label,*time_Label,*status_Label,*hwver_Label;
+  QLabel *space_Label,*err_Label,*status_Label,*hwver_Label;
   QTableWidget *tableRf;
   QMenu *file_menu;
   QAction *exit;

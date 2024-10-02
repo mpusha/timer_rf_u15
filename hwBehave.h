@@ -65,8 +65,14 @@ typedef enum
     INITIAL_STATE,
     GETINFO_STATE,
     GLOBAL_ERROR_STATE,
-    DEVICE_ERROR_STATE
+    SEND_STATE
 }CPhase;  // phases of state machine
+
+const QString cErrStr[]={"none","input buffer overflow","scanf format","range input data is incorrect","HW write", //4
+                         "none","none","none", //7
+                         "UART port absent","ошибка отправки сообщения","при приеме произошел таймаут","принято колличество данных менее ожидаемого",//11
+                         "приятый адрес не является числом", "принятые данные не являются числом","принятые данные не совпадают с записываемыми", //14
+                         "адрес устройства не установлен","канал таймера выходит из диапазона","время выходит из диапазона","timer off"}; //18
 
 /**
  * @brief The TDtBehave class
@@ -84,7 +90,7 @@ public:
 
 
 // working with HW
-  void setErrorSt(short int); // set errors in state of statemachine for all stadies
+  QString getErrorStr(int); // get error string
 
 
 // Server processing
@@ -109,6 +115,7 @@ private:
   QString srvStatus; // status of server start error ready busy
   bool reInit;
   int address;
+  QString hwVersion,hwStatus,hwError;
   QSerialPort *serial;
   QString serialPortName;
   int serialSpeed;

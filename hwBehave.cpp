@@ -64,7 +64,7 @@ QDebug operator <<(QDebug dbg, const CPhase &t)
   case GETSTATUS_STATE: dbg.space()        << "GETSTATUS_STATE" ; break;
   case INITIAL_STATE: dbg.space()          << "INITIAL_STATE" ; break;
   case GLOBAL_ERROR_STATE: dbg.space()     << "GLOBAL_ERROR_STATE" ; break;
-  case DEVICE_ERROR_STATE: dbg.space()     << "DEVICE_ERROR_STATE"; break;
+  case SEND_STATE: dbg.space()             << "SEND_STATE"; break;
   case GETINFO_STATE: dbg.space()          << "GETINFO_STATE" ; break;
   case TIMER_START_STATE: dbg.space()      << "TIMER_START_STATE"; break;
   case TIMER_STOP_STATE: dbg.space()       << "TIMER_STOP_STATE"; break;
@@ -75,9 +75,9 @@ QDebug operator <<(QDebug dbg, const CPhase &t)
 //-----------------------------------------------------------------------------
 //--- State all error Status for all stadies
 //-----------------------------------------------------------------------------
-void THwBehave::setErrorSt(short int st)
+QString THwBehave::getErrorStr(int st)
 {
-
+  return(cErrStr[abs(st)]);
 }
 
 //-----------------------------------------------------------------------------
@@ -136,7 +136,7 @@ void THwBehave::run()
       case INITIAL_STATE: {
         int err=initialDevice();
         if(err) {
-          emit signalMsg("Can't find serial device "+serialPortName+" Reboot computer.",2);
+          emit signalMsg("Can't find serial device "+serialPortName+" Reboot computer.",3);
           phase=GLOBAL_ERROR_STATE;
         }
         else {
@@ -147,15 +147,26 @@ void THwBehave::run()
       }// end case INITIAL_STATE:
 //  get info about device
       case GETINFO_STATE: {
-        int err=getInfoDevice();
-        if(err){
-          phase=DEVICE_ERROR_STATE;
-          emit signalMsg(QString("Can't find timer. Error code %1 ").arg(err),1);
+        int hwErr;
+        hwErr=testAlive();
+        if(!hwErr) { // errors absent
+          hwErr=readStr("GF",hwVersion);
+          if(hwErr) hwVersion="unknown";
+          hwErr=readStr("RS",hwStatus);
         }
         else {
-          repInit=1;
-          phase = READY;
+          hwStatus="Can't find timer";
+          hwVersion="unknown";
         }
+        hwError=getErrorStr(hwErr);
+        /*int err=getInfoDevice();
+        if(hwErr){
+          emit signalMsg(QString("code %1").arg(err),2);
+          emit signalMsg(QString("Can't find timer"),1);
+        }
+        else {
+        }*/
+        phase = SEND_STATE;
         break;
       }//end case GETINFO_STATE:
 // Found global error. Server can't work property. Wait until restart INITIAL_STATE
@@ -164,18 +175,12 @@ void THwBehave::run()
         msleep(20);
         break;
       }//end case GLOBAL_ERROR_STATE
-// processing hardware errors in device (CAN, bulk)
-      case DEVICE_ERROR_STATE:{
-        if(repInit==3) {
-          phase = GETINFO_STATE;
-          repInit=2;
-        }
-        else if(repInit==2) {
-          phase = GLOBAL_ERROR_STATE;
-        }
-        else
-          phase = READY;
-       // nextPhase=READY;
+// message about state of device
+      case SEND_STATE:{
+        emit signalMsg(hwError,2);
+        emit signalMsg(hwStatus,1);
+        emit signalMsg(hwVersion,0);
+        phase = READY;
         break;
       }// end case DEVICE_ERROR_STATE:
 // Sample device request from timer
@@ -207,7 +212,7 @@ void THwBehave::readSettings(void)
   QString dir_path = qApp->applicationDirPath();
   QSettings setup(dir_path+"/setup.ini", QSettings::IniFormat);
   bool ok;
-  serialPortName=setup.value("port","ttyS0").toString();
+  serialPortName=setup.value("port","/dev/ttyUSB0").toString();
   serialSpeed=setup.value("speed",9600).toInt(&ok); if(!ok) serialSpeed=QSerialPort::Baud9600;
 }
 
@@ -254,11 +259,11 @@ int THwBehave::getInfoDevice()
   }
   */
   QString ver;
-  int ff;
-  if(ff=readStr("GF",ver)) emit signalMsg("unknown",0);
+
+  if(readStr("GF",ver)) emit signalMsg("unknown",0);
   else
     emit signalMsg(ver,0);
-qDebug()<<ver;
+
   return testAlive();
 }
 
@@ -282,7 +287,15 @@ int THwBehave::testAlive(void)
   if (!serial->waitForBytesWritten(SERIAL_TOUT)) return ERR_UART_TRANS;
   // read response
   answer.clear();
-  //msleep(100);
+//
+  QByteArray tmp;
+  while(serial->waitForReadyRead(SERIAL_TOUT)){
+    tmp=serial->readAll();
+    answer.append(tmp);
+    if(!tmp.end()) break;
+  }
+  if(answer.isEmpty()) return ERR_UART_TOUT;
+//
   if(!serial->waitForReadyRead(SERIAL_TOUT)) return ERR_UART_TOUT;
   while(1){
     serial->read(&bf,1);
@@ -317,6 +330,17 @@ int THwBehave::readAnswer(QString& answer)
   char bf=0;
   int i=0;
   answer.clear();
+
+//
+  QByteArray tmp;
+  while(serial->waitForReadyRead(SERIAL_TOUT)){
+    tmp=serial->readAll();
+    answer.append(tmp);
+    if(!tmp.end()) break;
+  }
+  if(answer.isEmpty()) return ERR_UART_TOUT;
+//
+
   if(!serial->waitForReadyRead(SERIAL_TOUT)) { return ERR_UART_TOUT; }
   while(1){
     serial->read(&bf,1);// return ERR_UART_TOUT;

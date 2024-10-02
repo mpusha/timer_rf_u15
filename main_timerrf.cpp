@@ -157,21 +157,21 @@ void TTimerRf::create_Menu()
 //-----------------------------------------------------------------------------
 void TTimerRf::create_StatusBar()
 {
-  time_Label = new QLabel(this);
+  err_Label = new QLabel("Error: unknown");
 
-  time_Label->setFixedWidth(150);
-  time_Label->setAlignment(Qt::AlignLeft);
+  //err_Label->setFixedWidth(150);
+  err_Label->setAlignment(Qt::AlignLeft);
 
   QLabel *version_label = new QLabel(this);
   version_label->setFrameStyle(QFrame::Panel | QFrame::Sunken);
   version_label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
   version_label->setText("Program version: " + QCoreApplication::applicationVersion() + " ");
 
-  status_Label=new QLabel(tr("Start program"),this);
+  status_Label=new QLabel(tr("Status: Start program"),this);
   status_Label->setFrameStyle(QFrame::Panel | QFrame::Sunken);
   hwver_Label=new QLabel(tr("HW version: unknown"),this);
   hwver_Label->setFrameStyle(QFrame::Panel | QFrame::Sunken);
-  statusBar()->addWidget(time_Label,1);
+  statusBar()->addWidget(err_Label,2);
   statusBar()->addWidget(status_Label,2);
   statusBar()->addWidget(hwver_Label,1);
   statusBar()->addWidget(version_label,1);
@@ -198,8 +198,8 @@ void TTimerRf::Sleep(int ms)
 void TTimerRf::slot_updateDateTime()
 {
   //QString tim = QDateTime::currentDateTime().toString(" d MMMM dddd yyyy, h:mm:ss ");
-  QString tim = QDateTime::currentDateTime().toString(" d MMMM yyyy, h:mm ");
-  time_Label->setText(tim);
+  //QString tim = QDateTime::currentDateTime().toString(" d MMMM yyyy, h:mm ");
+  //time_Label->setText(tim);
 }
 
 
@@ -217,7 +217,7 @@ void TTimerRf::slot_alarmWriteAnswer()
 
 void TTimerRf::slot_ProcessMsg(QString msg, int code)
 {
-  if(code==2) {
+  if(code==3) {
     status_Label->setText(msg);
     QTimer::singleShot(10000, qApp, SLOT(closeAllWindows()));
     QMessageBox::critical(this,"Error",msg);
@@ -231,8 +231,11 @@ void TTimerRf::slot_ProcessMsg(QString msg, int code)
     //msgBox.exec();
     qApp->closeAllWindows();
   }
+  else if(code==2){
+    err_Label->setText("Error: "+msg);
+  }
   else if(code==1){
-    status_Label->setText(msg);
+    status_Label->setText("Status: "+msg);
   }
   else if(code==0) {
     hwver_Label->setText("HW version: "+msg);
