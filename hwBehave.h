@@ -16,6 +16,7 @@
 #include <QDataStream>
 #include <QByteArray>
 
+#define ALLVECTORS 8
 #define SAMPLE_DEVICE 1800 // time in ms for request device data (timer)
 
 #define STARTING_STS "starting"
@@ -91,8 +92,8 @@ public:
 
 // working with HW
   QString getErrorStr(int); // get error string
-
-
+  int readTime();
+  int getTime(int index) {return time[index];}
 // Server processing
   void setAbort(bool a) { abort=a; condition.wakeOne(); }
 
@@ -127,6 +128,8 @@ private:
   QMutex mutex;
   QWaitCondition condition;
 
+  int time[ALLVECTORS];
+
   int testAlive(void);
   int sendCmd(QString cmd);
   int readAnswer(QString& answer);
@@ -137,6 +140,7 @@ private:
 signals:
   void signalTimerEnable(bool);
   void signalMsg(QString,int);
+  void signalDataReady(int);
 
 };
 

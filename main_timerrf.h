@@ -8,7 +8,7 @@
 //------------------------------------------------------
 #define MAXTIME 500
 #define MINTIME 100
-#define ALLVECTORS 8
+//#define ALLVECTORS 8
 
 #define HEADER_COLOR  0xfff6f7f9
 
@@ -71,6 +71,7 @@ public slots:
     void slot_alarmWriteAnswer(void);
     void slot_ProcessMsg(QString,int);
     void slot_updateHW(void);
+    void slot_ProcessData(int code);
 
 protected:
 

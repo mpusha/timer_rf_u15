@@ -85,7 +85,7 @@ QString THwBehave::getErrorStr(int st)
 //-----------------------------------------------------------------------------
 void THwBehave::timeAlarm(void)
 {
-  qDebug()<<"Timer";
+  //qDebug()<<"Timer";
 
   allStates[GETSTATUS_STATE]=GETSTATUS_STATE;
   condition.wakeOne();
@@ -101,7 +101,7 @@ void THwBehave::run()
   phase=INITIAL_STATE;
   for(int i=0;i<ALLREQSTATES;i++) allStates[i]=READY;
   qDebug()<<"Start run() cycle of object THwBehave";
-  int repInit=3;
+
   CPhase deb=READY;//for debug only
   //QEventLoop loop;
   while(!abort) { // run until destructor not set abort
@@ -151,21 +151,16 @@ void THwBehave::run()
         hwErr=testAlive();
         if(!hwErr) { // errors absent
           hwErr=readStr("GF",hwVersion);
-          if(hwErr) hwVersion="unknown";
           hwErr=readStr("RS",hwStatus);
+          qDebug()<<"TIMER";
+          hwErr=readTime();
+          emit signalDataReady(0);
         }
         else {
           hwStatus="Can't find timer";
           hwVersion="unknown";
         }
         hwError=getErrorStr(hwErr);
-        /*int err=getInfoDevice();
-        if(hwErr){
-          emit signalMsg(QString("code %1").arg(err),2);
-          emit signalMsg(QString("Can't find timer"),1);
-        }
-        else {
-        }*/
         phase = SEND_STATE;
         break;
       }//end case GETINFO_STATE:
@@ -266,7 +261,17 @@ int THwBehave::getInfoDevice()
 
   return testAlive();
 }
-
+int THwBehave::readTime()
+{
+  int ti,err;
+  for(int i=0;i<ALLVECTORS;i++) time[i]=-1;
+  for(int i=0;i<ALLVECTORS;i++){
+    err=readData("RT",i+1,&ti);
+    time[i]=ti;
+    if(err) return err;
+  }
+  return 0;
+}
 // private slots
 void THwBehave::slotTimerEnable(bool en)
 {
@@ -277,8 +282,6 @@ void THwBehave::slotTimerEnable(bool en)
 int THwBehave::testAlive(void)
 {
   int codret=0;
-  char bf=0;
-  int i=0;
 
   QString cmd=QString("%1:%2\0").arg(address,2,10,QChar('0')).arg("AL");
   QString answer;
@@ -287,7 +290,6 @@ int THwBehave::testAlive(void)
   if (!serial->waitForBytesWritten(SERIAL_TOUT)) return ERR_UART_TRANS;
   // read response
   answer.clear();
-//
   QByteArray tmp;
   while(serial->waitForReadyRead(SERIAL_TOUT)){
     tmp=serial->readAll();
@@ -295,15 +297,6 @@ int THwBehave::testAlive(void)
     if(!tmp.end()) break;
   }
   if(answer.isEmpty()) return ERR_UART_TOUT;
-//
-  if(!serial->waitForReadyRead(SERIAL_TOUT)) return ERR_UART_TOUT;
-  while(1){
-    serial->read(&bf,1);
-    if(!bf) break;
-    answer.append(bf);
-    i++;
-    if(i>=32) { serial->flush(); break; }
-  }
   QStringList rdata;
   bool ok;
   rdata.clear();
@@ -327,29 +320,17 @@ int THwBehave::sendCmd(QString cmd)
 
 int THwBehave::readAnswer(QString& answer)
 {
-  char bf=0;
-  int i=0;
   answer.clear();
-
-//
   QByteArray tmp;
-  while(serial->waitForReadyRead(SERIAL_TOUT)){
+  int f;
+  while(f=serial->waitForReadyRead(SERIAL_TOUT)){
+    qDebug()<<"RA"<<f;
     tmp=serial->readAll();
     answer.append(tmp);
     if(!tmp.end()) break;
   }
+qDebug()<<"Rn"<<f;
   if(answer.isEmpty()) return ERR_UART_TOUT;
-//
-
-  if(!serial->waitForReadyRead(SERIAL_TOUT)) { return ERR_UART_TOUT; }
-  while(1){
-    serial->read(&bf,1);// return ERR_UART_TOUT;
-    if(!bf) break;
-    answer.append(bf);
-    i++;
-    if(i>=32) { serial->flush(); break; }
-  }
-
   return ERR_NONE;
 }
 
@@ -360,7 +341,7 @@ int THwBehave::readStr(QString cmd,QString& ans)
   QString answer;
   QStringList rdata;
   bool ok;
-
+  ans="unknown";
   sendStr=QString("%1:%2").arg(address,2,10,QChar('0')).arg(cmd);
   for(int i=0;i<REP;i++){
     msleep(RS_DELAY);
@@ -405,7 +386,7 @@ int THwBehave::readData(QString cmd,int ch,int *readData)
     int codret=rdata.at(1).toInt(&ok);
     if(!ok) {ret=ERR_IDATA_CRET; continue; }
     *readData=codret;
-    if(codret) { ret=codret; continue; } //uc  error
+    //if(codret) { ret=codret; continue; } //uc  error
     break;
   }
   return ret;

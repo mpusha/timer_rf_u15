@@ -28,6 +28,7 @@ TTimerRf::TTimerRf(QWidget *parent)  : QMainWindow(parent)
   modifyData=false;
   dev=new THwBehave;
   connect(dev, SIGNAL(signalMsg(QString,int)), this, SLOT(slot_ProcessMsg(QString,int)));
+  connect(dev, SIGNAL(signalDataReady(int)), this, SLOT(slot_ProcessData(int)));
   //dev->start(QThread::NormalPriority);
   setMinimumSize(800,320);
   //showMaximized();
@@ -116,7 +117,7 @@ void TTimerRf::create_ListWidget()
 void TTimerRf::putDataToTable(void)
 {
   for(int i=0;i<ALLVECTORS;i++) {
-    data[0][i]=round(data[0][i]*100)/100.0;
+    data[0][i]=round(data[0][i]/100)*100.0;
     itemTable[0][i]->setText(QString("%1").arg(data[0][i],5,'f',2));
   }
 }
@@ -130,8 +131,8 @@ void TTimerRf::getDataFromTable(void)
     if(tmp<0) tmp=0;
     else if(tmp>maxTime)
       tmp=maxTime;
-    tmp=round(tmp*100);
-    data[0][i]=tmp/100.0;
+    tmp=round(tmp/100);
+    data[0][i]=tmp*100.0;
     if(!ok) data[0][i]=0;
   }
 }
@@ -241,7 +242,15 @@ void TTimerRf::slot_ProcessMsg(QString msg, int code)
     hwver_Label->setText("HW version: "+msg);
   }
 }
-
+void TTimerRf::slot_ProcessData(int code)
+{
+  if(code==0){
+    for(int i=0;i<ALLVECTORS;i++){
+      data[0][i]=dev->getTime(i);
+    }
+    putDataToTable();
+  }
+}
 void TTimerRf::slot_updateHW(void)
 {
    dev->setState(UPDATE_STATE);
