@@ -27,12 +27,12 @@ TTimerRf::TTimerRf(QWidget *parent)  : QMainWindow(parent)
 
   modifyData=false;
   dev=new THwBehave;
-  connect(dev, SIGNAL(signalMsg(QString,int)), this, SLOT(slot_ProcessMsg(QString,int)));
-  connect(dev, SIGNAL(signalDataReady(int)), this, SLOT(slot_ProcessData(int)));
+  connect(dev, SIGNAL(signalMsg(QString,int)), this, SLOT(slot_processMsg(QString,int)));
+  connect(dev, SIGNAL(signalDataReady(int)), this, SLOT(slot_processData(int)));
   //dev->start(QThread::NormalPriority);
   setMinimumSize(800,320);
   //showMaximized();
-  resize(800,320);
+  resize(900,320);
 }
 
 //-----------------------------------------------------------------------------
@@ -63,12 +63,12 @@ void TTimerRf::create_ListWidget()
   main_layout->setMargin(5);
   main_layout->setSpacing(4);
 
-  refresh_btn=new QPushButton(tr("Refresh"),this);
+  update_btn=new QPushButton(tr("Update"),this);
   write_btn=new QPushButton(tr("Write"),this);
 
   edit_layout = new QHBoxLayout;
 
-  edit_layout->addWidget(refresh_btn); edit_layout->addStretch(1);
+  edit_layout->addWidget(update_btn); edit_layout->addStretch(1);
   edit_layout->addWidget(write_btn); edit_layout->addStretch(1);
 
   edit_layout->setSpacing(10);
@@ -109,15 +109,16 @@ void TTimerRf::create_ListWidget()
    tableRf->setColumnWidth(i,80);
  }
  putDataToTable();
- connect(refresh_btn,SIGNAL(pressed()), this, SLOT(slot_updateHW()));
- connect(write_btn,SIGNAL(pressed()), this, SLOT(slot_writeHW()));
-
+ connect(update_btn,SIGNAL(pressed()), this, SLOT(slot_updateHW()));
+ connect(write_btn,SIGNAL(pressed()), this, SLOT(slot_writeData()));
+ tableRf->setEnabled(false);
+ write_btn->setEnabled(false);
 }
 
 void TTimerRf::putDataToTable(void)
 {
   for(int i=0;i<ALLVECTORS;i++) {
-    data[0][i]=round(data[0][i]/100)*100.0;
+    data[0][i]=round(data[0][i]*100)/100.0;
     itemTable[0][i]->setText(QString("%1").arg(data[0][i],5,'f',2));
   }
 }
@@ -131,8 +132,8 @@ void TTimerRf::getDataFromTable(void)
     if(tmp<0) tmp=0;
     else if(tmp>maxTime)
       tmp=maxTime;
-    tmp=round(tmp/100);
-    data[0][i]=tmp*100.0;
+    tmp=round(tmp*100);
+    data[0][i]=tmp/100.0;
     if(!ok) data[0][i]=0;
   }
 }
@@ -204,8 +205,6 @@ void TTimerRf::slot_updateDateTime()
 }
 
 
-
-
 void TTimerRf::slot_alarmWriteAnswer()
 {
   alarmWrTimer->stop();
@@ -216,9 +215,17 @@ void TTimerRf::slot_alarmWriteAnswer()
   timer->start(2000);
 }
 
-void TTimerRf::slot_ProcessMsg(QString msg, int code)
+void TTimerRf::slot_processMsg(QString msg, int code)
 {
-  if(code==3) {
+  if(code==5){ // device present
+    tableRf->setEnabled(true);
+    write_btn->setEnabled(true);
+  }
+  else if(code==4){ // device absent
+    tableRf->setEnabled(false);
+    write_btn->setEnabled(false);
+  }
+  else if(code==3) {
     status_Label->setText(msg);
     QTimer::singleShot(10000, qApp, SLOT(closeAllWindows()));
     QMessageBox::critical(this,"Error",msg);
@@ -242,11 +249,11 @@ void TTimerRf::slot_ProcessMsg(QString msg, int code)
     hwver_Label->setText("HW version: "+msg);
   }
 }
-void TTimerRf::slot_ProcessData(int code)
+void TTimerRf::slot_processData(int code)
 {
   if(code==0){
     for(int i=0;i<ALLVECTORS;i++){
-      data[0][i]=dev->getTime(i);
+      data[0][i]=dev->getTime(i)/1000.0;
     }
     putDataToTable();
   }
@@ -254,4 +261,14 @@ void TTimerRf::slot_ProcessData(int code)
 void TTimerRf::slot_updateHW(void)
 {
    dev->setState(UPDATE_STATE);
+}
+
+void TTimerRf::slot_writeData(void)
+{
+  getDataFromTable();
+  putDataToTable();
+  for(int i=0;i<ALLVECTORS;i++){
+    dev->setTime(i,round(data[0][i]*1000));
+  }
+  dev->setState(WRITE_STATE);
 }

@@ -17,12 +17,12 @@
 #include <QByteArray>
 
 #define ALLVECTORS 8
-#define SAMPLE_DEVICE 1800 // time in ms for request device data (timer)
+#define SAMPLE_DEVICE 5000 // time in ms for request device data (timer)
 
-#define STARTING_STS "starting"
-#define BUSY_STS "busy"
-#define READY_STS "ready"
-#define ERR_STS "error"
+//#define STARTING_STS "starting"
+//#define BUSY_STS "busy"
+//#define READY_STS "ready"
+//#define ERR_STS "error"
 
 
 #define REP 3 // number of repeates
@@ -47,7 +47,7 @@
 #define ERR_BAD        18  //
 
 #define TADDR 1
-#define SERIAL_TOUT 500
+#define SERIAL_TOUT 100
 #define UART_SHORT_TOUT 50L
 #define RS_DELAY 5
 /**
@@ -94,6 +94,7 @@ public:
   QString getErrorStr(int); // get error string
   int readTime();
   int getTime(int index) {return time[index];}
+  void setTime(int index,int val) {time[index]=val;}
 // Server processing
   void setAbort(bool a) { abort=a; condition.wakeOne(); }
 
@@ -106,6 +107,7 @@ public slots:
   void timeAlarm(void);
 private slots:
   void slotTimerEnable(bool);
+
 
 protected:
     void run();
@@ -120,17 +122,20 @@ private:
   QSerialPort *serial;
   QString serialPortName;
   int serialSpeed;
+  QByteArray buf;
 // process state machine
   CPhase phase;
   CPhase allStates[ALLREQSTATES];
   bool abort;
-  QTimer *tAlrm;
   QMutex mutex;
   QWaitCondition condition;
+  int pastSt,presentSt;
+// timers
+  QTimer *tAlrm;
 
   int time[ALLVECTORS];
 
-  int testAlive(void);
+  int execCmd(QString command);
   int sendCmd(QString cmd);
   int readAnswer(QString& answer);
   int readStr(QString cmd,QString& ans);

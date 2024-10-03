@@ -12,7 +12,7 @@
 
 #define HEADER_COLOR  0xfff6f7f9
 
-const double maxTime=59.5;
+const double maxTime=59.500;
 
 //------------------------------------------------------
 class TTimerRf;
@@ -34,7 +34,7 @@ private:
   QVBoxLayout *main_layout;
   QHBoxLayout *edit_layout,*data_layout,*graph_layout;
   QGroupBox *MainGroupBox;            // Main Box
-  QPushButton *refresh_btn,*write_btn;
+  QPushButton *update_btn,*write_btn;
   QLabel *space_Label,*err_Label,*status_Label,*hwver_Label;
   QTableWidget *tableRf;
   QMenu *file_menu;
@@ -66,12 +66,12 @@ private:
     bool modifyData;
     THwBehave *dev;
 public slots:
-
+    void slot_writeData(void);
     void slot_updateDateTime(void);
     void slot_alarmWriteAnswer(void);
-    void slot_ProcessMsg(QString,int);
+    void slot_processMsg(QString,int);
     void slot_updateHW(void);
-    void slot_ProcessData(int code);
+    void slot_processData(int code);
 
 protected:
 

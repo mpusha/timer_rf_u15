@@ -22,11 +22,11 @@ THwBehave::THwBehave()
   reInit=true; // reinit timer (get version, read data)
   readSettings();
   serial=0;
-  address=TADDR;
+  pastSt=0; presentSt=0;
   connect(tAlrm,SIGNAL(timeout()),this,SLOT(timeAlarm()));
-  tAlrm->start(SAMPLE_DEVICE); //start timer for sample device
-  start(QThread::NormalPriority);
   connect(this, SIGNAL(signalTimerEnable(bool)), this, SLOT(slotTimerEnable(bool)));
+  start(QThread::NormalPriority);
+
   qDebug()<<"End constructor of object THwBehave";
 }
 
@@ -85,8 +85,6 @@ QString THwBehave::getErrorStr(int st)
 //-----------------------------------------------------------------------------
 void THwBehave::timeAlarm(void)
 {
-  //qDebug()<<"Timer";
-
   allStates[GETSTATUS_STATE]=GETSTATUS_STATE;
   condition.wakeOne();
 }
@@ -103,7 +101,6 @@ void THwBehave::run()
   qDebug()<<"Start run() cycle of object THwBehave";
 
   CPhase deb=READY;//for debug only
-  //QEventLoop loop;
   while(!abort) { // run until destructor not set abort
     mutex.lock();
     if(phase==READY){
@@ -140,7 +137,7 @@ void THwBehave::run()
           phase=GLOBAL_ERROR_STATE;
         }
         else {
-          phase = GETINFO_STATE;
+          phase = GETSTATUS_STATE;
           emit signalTimerEnable(true);
         }
         break;
@@ -148,26 +145,26 @@ void THwBehave::run()
 //  get info about device
       case GETINFO_STATE: {
         int hwErr;
-        hwErr=testAlive();
+        hwErr=execCmd("AL");
         if(!hwErr) { // errors absent
           hwErr=readStr("GF",hwVersion);
           hwErr=readStr("RS",hwStatus);
-          qDebug()<<"TIMER";
           hwErr=readTime();
           emit signalDataReady(0);
+          emit signalMsg("",5); // device present
         }
         else {
           hwStatus="Can't find timer";
           hwVersion="unknown";
+          emit signalMsg("",4); // device absent
         }
         hwError=getErrorStr(hwErr);
         phase = SEND_STATE;
         break;
       }//end case GETINFO_STATE:
-// Found global error. Server can't work property. Wait until restart INITIAL_STATE
+// Found global error. Server can't work properly.
       case GLOBAL_ERROR_STATE: {
         abort=true;
-        msleep(20);
         break;
       }//end case GLOBAL_ERROR_STATE
 // message about state of device
@@ -180,17 +177,56 @@ void THwBehave::run()
       }// end case DEVICE_ERROR_STATE:
 // Sample device request from timer
       case GETSTATUS_STATE: {
-        //getInfoData();
-        //if(reInit) { phase=GETINFO_STATE; break; }
+         int hwErr;
+         hwErr=execCmd("AL");
+         if(!hwErr) { // errors absent
+           presentSt=1;
+         }
+         else
+           presentSt=0;
+         if((presentSt ^ pastSt)&presentSt){ // arrive device
+           phase = GETINFO_STATE;
+         }
+         else if((presentSt ^ pastSt)&pastSt){ // left device
+           phase = GETINFO_STATE;
+         }
+         else {
+           phase = READY;
+         }
+         pastSt=presentSt;
          allStates[GETSTATUS_STATE]=READY; // reset state
-         phase = READY;
          break;
-      }//end case GETPARREQ_STATE:
+      }//end case GETPARREQ_STATE
       case UPDATE_STATE: {
         allStates[UPDATE_STATE]=READY;
         phase=GETINFO_STATE;
         break;
-      }
+      }//end case UPDATE_STATE
+      case WRITE_STATE: {
+        QString ans;
+        int hwErr;
+        hwErr=execCmd("AL");
+        if(!hwErr) { // errors absent
+          for(int i=0;i<ALLVECTORS;i++) {
+            hwErr=writeData("ST",i+1,time[i]);
+          }
+          hwErr=execCmd("UH");
+          do {
+            msleep(900);
+            ans.clear();
+            readStr("RS",ans);
+            emit signalMsg(ans,1);
+          } while(execCmd("SM"));
+        }
+        else {
+          hwStatus="Can't find timer";
+        }
+        hwError=getErrorStr(hwErr);
+        phase = SEND_STATE;
+        allStates[WRITE_STATE]=READY;
+        //phase=READY;
+        break;
+      }  //end case WRITE_STATE
     } // End Switch main state machine--------------------------------------------------------------------------------------------------------------
     if(abort) break;
   }
@@ -209,6 +245,7 @@ void THwBehave::readSettings(void)
   bool ok;
   serialPortName=setup.value("port","/dev/ttyUSB0").toString();
   serialSpeed=setup.value("speed",9600).toInt(&ok); if(!ok) serialSpeed=QSerialPort::Baud9600;
+  address=setup.value("address",1).toInt(&ok); if(!ok) address=1;
 }
 
 //================= DEVICE PART ================================================================================================================
@@ -259,14 +296,14 @@ int THwBehave::getInfoDevice()
   else
     emit signalMsg(ver,0);
 
-  return testAlive();
+  return execCmd("AL");
 }
 int THwBehave::readTime()
 {
   int ti,err;
   for(int i=0;i<ALLVECTORS;i++) time[i]=-1;
   for(int i=0;i<ALLVECTORS;i++){
-    err=readData("RT",i+1,&ti);
+    err=readData("GT",i+1,&ti);
     time[i]=ti;
     if(err) return err;
   }
@@ -279,11 +316,11 @@ void THwBehave::slotTimerEnable(bool en)
 }
 
 // return 0 if controller alive
-int THwBehave::testAlive(void)
+int THwBehave::execCmd(QString command)
 {
   int codret=0;
 
-  QString cmd=QString("%1:%2\0").arg(address,2,10,QChar('0')).arg("AL");
+  QString cmd=QString("%1:%2\0").arg(address,2,10,QChar('0')).arg(command);
   QString answer;
 
   serial->write(cmd.toLocal8Bit().data(),cmd.size()+1);
@@ -294,7 +331,7 @@ int THwBehave::testAlive(void)
   while(serial->waitForReadyRead(SERIAL_TOUT)){
     tmp=serial->readAll();
     answer.append(tmp);
-    if(!tmp.end()) break;
+    if(!tmp.at(tmp.size()-1)) break;
   }
   if(answer.isEmpty()) return ERR_UART_TOUT;
   QStringList rdata;
@@ -317,19 +354,15 @@ int THwBehave::sendCmd(QString cmd)
   if (!serial->waitForBytesWritten(SERIAL_TOUT)) return ERR_UART_TRANS;
   return ERR_NONE;
 }
-
 int THwBehave::readAnswer(QString& answer)
 {
   answer.clear();
   QByteArray tmp;
-  int f;
-  while(f=serial->waitForReadyRead(SERIAL_TOUT)){
-    qDebug()<<"RA"<<f;
+  while(serial->waitForReadyRead(SERIAL_TOUT)){
     tmp=serial->readAll();
     answer.append(tmp);
-    if(!tmp.end()) break;
+    if(!tmp.at(tmp.size()-1)) break;
   }
-qDebug()<<"Rn"<<f;
   if(answer.isEmpty()) return ERR_UART_TOUT;
   return ERR_NONE;
 }
