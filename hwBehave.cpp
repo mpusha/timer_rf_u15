@@ -60,6 +60,7 @@ QDebug operator <<(QDebug dbg, const CPhase &t)
   switch(t){
   case READY: dbg.space()                  << "READY" ; break;
   case IDLE: dbg.space()                   << "IDLE" ; break;
+  case WRITE_STATE: dbg.space()            << "WRITE_STATE" ; break;
   case UPDATE_STATE: dbg.space()           << "UPDATE HW INFO" ; break;
   case GETSTATUS_STATE: dbg.space()        << "GETSTATUS_STATE" ; break;
   case INITIAL_STATE: dbg.space()          << "INITIAL_STATE" ; break;
