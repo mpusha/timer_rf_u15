@@ -41,7 +41,6 @@ private:
   QAction *exit;
   QFont app_font;                 // Font
 
-  QTimer *timer,*alarmWrTimer;                  // Timer for time update
   QMessageBox msgBox;
 
 private:
@@ -67,8 +66,6 @@ private:
     THwBehave *dev;
 public slots:
     void slot_writeData(void);
-    void slot_updateDateTime(void);
-    void slot_alarmWriteAnswer(void);
     void slot_processMsg(QString,int);
     void slot_updateHW(void);
     void slot_processData(int code);

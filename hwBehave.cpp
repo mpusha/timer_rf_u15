@@ -86,6 +86,7 @@ QString THwBehave::getErrorStr(int st)
 //-----------------------------------------------------------------------------
 void THwBehave::timeAlarm(void)
 {
+  //qDebug()<<"TIMER'";
   allStates[GETSTATUS_STATE]=GETSTATUS_STATE;
   condition.wakeOne();
 }
@@ -146,7 +147,7 @@ void THwBehave::run()
 //  get info about device
       case GETINFO_STATE: {
         int hwErr;
-        hwErr=execCmd("AL");
+        hwErr=execCmd("AL"); //test alive
         if(!hwErr) { // errors absent
           hwErr=readStr("GF",hwVersion);
           hwErr=readStr("RS",hwStatus);
@@ -176,10 +177,10 @@ void THwBehave::run()
         phase = READY;
         break;
       }// end case DEVICE_ERROR_STATE:
-// Sample device request from timer
+// find arrive leive
       case GETSTATUS_STATE: {
          int hwErr;
-         hwErr=execCmd("AL");
+         hwErr=execCmd("AL"); //test alive
          if(!hwErr) { // errors absent
            presentSt=1;
          }
@@ -188,7 +189,7 @@ void THwBehave::run()
          if((presentSt ^ pastSt)&presentSt){ // arrive device
            phase = GETINFO_STATE;
          }
-         else if((presentSt ^ pastSt)&pastSt){ // left device
+         else if((presentSt ^ pastSt)&pastSt){ // leive device
            phase = GETINFO_STATE;
          }
          else {
@@ -206,25 +207,38 @@ void THwBehave::run()
       case WRITE_STATE: {
         QString ans;
         int hwErr;
-        hwErr=execCmd("AL");
+        allStates[WRITE_STATE]=READY;
+        hwErr=execCmd("AL"); //test alive
         if(!hwErr) { // errors absent
           for(int i=0;i<ALLVECTORS;i++) {
-            hwErr=writeData("ST",i+1,time[i]);
+            hwErr=writeData("ST",i+1,time[i]); //write time data
+            if(hwErr) break;
+          }
+          if(hwErr){
+            hwError=getErrorStr(hwErr);
+            hwStatus="data don't write";
+            phase = SEND_STATE;
+            break;
           }
           hwErr=execCmd("UH");
-          do {
-            msleep(900);
-            ans.clear();
-            readStr("RS",ans);
-            emit signalMsg(ans,1);
-          } while(execCmd("SM"));
+          if(!hwErr){
+            do {
+              msleep(900);
+              ans.clear();
+              if(!readStr("RS",ans)) hwStatus=ans;// read status
+              else
+                hwStatus="unknown";
+              emit signalMsg(hwStatus,1);
+            } while(execCmd("SM")); // read state machine
+          }
         }
         else {
-          hwStatus="Can't find timer";
+          phase=GETINFO_STATE;
+          break;
         }
+        emit signalMsg("",5); // device present
         hwError=getErrorStr(hwErr);
         phase = SEND_STATE;
-        allStates[WRITE_STATE]=READY;
         //phase=READY;
         break;
       }  //end case WRITE_STATE
@@ -264,52 +278,18 @@ int THwBehave::initialDevice(void)
   return 0;
 }
 
-//-------------------------------------------------------------------------------------------------
-//--- Get information about device
-//-------------------------------------------------------------------------------------------------
-int THwBehave::getInfoDevice()
-{
-  // write request
-  /*
-  const QByteArray requestData = QString("%1%2\0").arg(TADDR).arg("FW").toLocal8Bit();
-  serial.write(requestData);
-  if (serial.waitForBytesWritten(SERIAL_TOUT)) {
-      // read response
-      if (serial.waitForReadyRead(SERIAL_TOUT)) {
-        QByteArray responseData = serial.readAll();
-        while (serial.waitForReadyRead(10))
-          responseData += serial.readAll();
-
-          const QString response = QString::fromUtf8(responseData);
-          emit this->response(response);
-      } else {
-          emit timeout(tr("Wait read response timeout %1")
-                       .arg(QTime::currentTime().toString()));
-      }
-  } else {
-      emit timeout(tr("Wait write request timeout %1")
-                   .arg(QTime::currentTime().toString()));
-  }
-  */
-  QString ver;
-
-  if(readStr("GF",ver)) emit signalMsg("unknown",0);
-  else
-    emit signalMsg(ver,0);
-
-  return execCmd("AL");
-}
 int THwBehave::readTime()
 {
-  int ti,err;
-  for(int i=0;i<ALLVECTORS;i++) time[i]=-1;
+  int ti[ALLVECTORS],err;
+  for(int i=0;i<ALLVECTORS;i++) time[i]=-100;
   for(int i=0;i<ALLVECTORS;i++){
-    err=readData("GT",i+1,&ti);
-    time[i]=ti;
+    err=readData("GT",i+1,&ti[i]);
     if(err) return err;
   }
+  for(int i=0;i<ALLVECTORS;i++) time[i]=ti[i];
   return 0;
 }
+
 // private slots
 void THwBehave::slotTimerEnable(bool en)
 {
@@ -448,6 +428,7 @@ int THwBehave::writeData(QString cmd,int ch, int data)
     int addr=rdata.at(0).toInt(&ok);
     if(!ok) {ret=ERR_IDATA_ADDR; continue; }
     if(addr!=address) {ret=ERR_IDATA_ADDR; continue; } // address none correct
+    if(rdata.at(1)[0]=='?') { ret=ERR_BADANSW; continue; } // receive ? in answer
     int codret=rdata.at(1).toInt(&ok);
     if(!ok) {ret=ERR_IDATA_CRET; continue; }
     if(codret) { ret=codret; continue; } //uc  error;

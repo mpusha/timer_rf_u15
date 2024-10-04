@@ -45,8 +45,8 @@
 #define ERR_SETUP_CH 16    // устанавливаемый канал таймера выходит из диапазона 1-16, либо не установлен
 #define ERR_SETUP_DATA 17  // устанавливаоемое время запуска или длительность выходного имульса выходит из диапазона MINDATA-MAXDATA MINWIDTH-MAXWIDTH
 #define ERR_BAD        18  //
+#define ERR_BADANSW    19
 
-#define TADDR 1
 #define SERIAL_TOUT 100
 #define UART_SHORT_TOUT 50L
 #define RS_DELAY 5
@@ -71,9 +71,10 @@ typedef enum
 
 const QString cErrStr[]={"none","input buffer overflow","scanf format","range input data is incorrect","HW write", //4
                          "none","none","none", //7
-                         "UART port absent","ошибка отправки сообщения","при приеме произошел таймаут","принято колличество данных менее ожидаемого",//11
-                         "приятый адрес не является числом", "принятые данные не являются числом","принятые данные не совпадают с записываемыми", //14
-                         "адрес устройства не установлен","канал таймера выходит из диапазона","время выходит из диапазона","timer off"}; //18
+                         "UART port absent","can't send message","receiver timeout","count of input data is incorrect",//11
+                         "address is incorrect", "time is incorrect","write/read data are different", //14
+                         "address of device don't set","setup chanel of timer is outrange","setup time of timer is outrange","timer off",//18
+                         "bad answer from uC"}; //19
 
 /**
  * @brief The TDtBehave class
@@ -98,16 +99,13 @@ public:
 // Server processing
   void setAbort(bool a) { abort=a; condition.wakeOne(); }
 
-
 // work with device
   int initialDevice(void);
-  int getInfoDevice();
 
 public slots:
   void timeAlarm(void);
 private slots:
   void slotTimerEnable(bool);
-
 
 protected:
     void run();

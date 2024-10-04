@@ -15,21 +15,12 @@ TTimerRf::TTimerRf(QWidget *parent)  : QMainWindow(parent)
   QTextCodec *russianCodec = QTextCodec::codecForName("UTF-8");
   QTextCodec::setCodecForLocale(russianCodec);
 
-  //... Data&Time ...
-  timer = new QTimer(this);
-  connect(timer, SIGNAL(timeout()), this, SLOT(slot_updateDateTime()));
-  //slot_updateDateTime();
-  timer->start(2000);
-  alarmWrTimer = new QTimer(this);
-  connect(alarmWrTimer, SIGNAL(timeout()), this, SLOT(slot_alarmWriteAnswer()));
   setWindowTitle(tr("Program for setup RF timer"));
-  //slot_writeSettings();
 
   modifyData=false;
   dev=new THwBehave;
   connect(dev, SIGNAL(signalMsg(QString,int)), this, SLOT(slot_processMsg(QString,int)));
   connect(dev, SIGNAL(signalDataReady(int)), this, SLOT(slot_processData(int)));
-  //dev->start(QThread::NormalPriority);
   setMinimumSize(800,320);
   //showMaximized();
   resize(900,320);
@@ -194,26 +185,7 @@ void TTimerRf::Sleep(int ms)
 }
 
 //------------------------------ SLOTS ----------------------------------------
-//-----------------------------------------------------------------------------
-//--- Slot update_DateTime()
-//-----------------------------------------------------------------------------
-void TTimerRf::slot_updateDateTime()
-{
-  //QString tim = QDateTime::currentDateTime().toString(" d MMMM dddd yyyy, h:mm:ss ");
-  //QString tim = QDateTime::currentDateTime().toString(" d MMMM yyyy, h:mm ");
-  //time_Label->setText(tim);
-}
 
-
-void TTimerRf::slot_alarmWriteAnswer()
-{
-  alarmWrTimer->stop();
-  timer->stop();
-  status_Label->setText(" Status: Data don't writen");
-  hwver_Label->setText(" Error: HW error");
-  QMessageBox::warning(this,"error",tr("Can't write data into HW"));
-  timer->start(2000);
-}
 
 void TTimerRf::slot_processMsg(QString msg, int code)
 {
@@ -265,10 +237,14 @@ void TTimerRf::slot_updateHW(void)
 
 void TTimerRf::slot_writeData(void)
 {
-  getDataFromTable();
-  putDataToTable();
-  for(int i=0;i<ALLVECTORS;i++){
-    dev->setTime(i,round(data[0][i]*1000));
+  if(modifyData){
+    slot_processMsg("",4);// disable btn
+    getDataFromTable();
+    putDataToTable();
+    for(int i=0;i<ALLVECTORS;i++){
+      dev->setTime(i,round(data[0][i]*1000));
+    }
+    dev->setState(WRITE_STATE);
+    modifyData=false;
   }
-  dev->setState(WRITE_STATE);
 }
