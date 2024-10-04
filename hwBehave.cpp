@@ -1,17 +1,11 @@
 #include <QThread>
 #include <QDir>
 //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-1
+//https://habr.com/ru/articles/252101/
 #include "hwBehave.h"
 
-/**
- * @brief TDtBehave::TDtBehave
- * @param nPort
- * @param dName
- * @param usbMtx
- * @param vid
- * @param pid
- * @param logSize
- * @param logCount
+/*!
+ * @brief THwBehave::THwBehave
  */
 THwBehave::THwBehave()
 {

@@ -1,5 +1,9 @@
 #ifndef HWBEHAVE_H
 #define HWBEHAVE_H
+/*!
+*  \file hwBehave.h
+*  \brief Header of class TDtBehave
+*/
 //#include <QtCore/QCoreApplication>
 #include <QtCore>
 #include <QFile>
@@ -16,7 +20,7 @@
 #include <QDataStream>
 #include <QByteArray>
 
-#define ALLVECTORS 8
+#define ALLVECTORS 8 ///< size
 #define SAMPLE_DEVICE 5000 // time in ms for request device data (timer)
 
 //#define STARTING_STS "starting"
@@ -54,13 +58,13 @@
 */
 typedef enum
 {
-  GETSTATUS_STATE,
+  GETSTATUS_STATE, ///< no errors
   WRITE_STATE,
   READ_STATE,
   UPDATE_STATE,
   TIMER_START_STATE,
   TIMER_STOP_STATE,
-  ALLREQSTATES,    //limiter on process request states
+  ALLREQSTATES,    ///<limiter on process request states
     IDLE,
     READY,
     INITIAL_STATE,
@@ -76,9 +80,10 @@ const QString cErrStr[]={"none","input buffer overflow","scanf format","range in
                          "address of device don't set","setup chanel of timer is outrange","setup time of timer is outrange","timer off",//18
                          "bad answer from uC"}; //19
 
-/**
- * @brief The TDtBehave class
- */
+/*! \brief Class THwBehave
+ *  \date Oct 2024
+ * \author Sergey Sytov
+*/
 class THwBehave : public QThread
 {
   Q_OBJECT
@@ -100,6 +105,14 @@ public:
   void setAbort(bool a) { abort=a; condition.wakeOne(); }
 
 // work with device
+/*!
+ * \brief Compleate read constant data
+ *
+ * Запись в файл блока данных настроек
+ * \param[in] id
+ * \param[in] fname
+ * \return Code of erors
+*/
   int initialDevice(void);
 
 public slots:

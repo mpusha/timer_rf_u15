@@ -1,6 +1,10 @@
 #ifndef MAIN_TRF_H
 #define MAIN_TRF_H
 
+/*!
+*  \file main_timerrf.h
+*  \brief Header of class TDtBehave
+*/
 
 #include <qt5/QtWidgets/QtWidgets>
 #include "hwBehave.h"
