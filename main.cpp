@@ -1,7 +1,7 @@
 #include <QApplication>
 #include "main_timerrf.h"
 
-
+//! Основная программа
 int main(int argc, char *argv[])
 {
 

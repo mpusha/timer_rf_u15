@@ -1,3 +1,7 @@
+/*!
+*  \file hwBehave.cpp
+*  \brief Файл с реализацией класса THwBehave
+*/
 #include <QThread>
 #include <QDir>
 //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-1
@@ -5,7 +9,10 @@
 #include "hwBehave.h"
 
 /*!
- * @brief THwBehave::THwBehave
+ * @brief Конструктор класса THwBehave
+ *
+ * Создает объект внутреннего таймера для опроса внешнего устройства.
+ * Считывает уставки переменных и запускает поток.
  */
 THwBehave::THwBehave()
 {
@@ -13,20 +20,22 @@ THwBehave::THwBehave()
   qDebug()<<"Start constructor of object THwBehave";
 
   tAlrm=new QTimer();
-  reInit=true; // reinit timer (get version, read data)
   readSettings();
   serial=0;
   pastSt=0; presentSt=0;
-  connect(tAlrm,SIGNAL(timeout()),this,SLOT(timeAlarm()));
+  connect(tAlrm,SIGNAL(timeout()),this,SLOT(slotTimeAlarm()));
   connect(this, SIGNAL(signalTimerEnable(bool)), this, SLOT(slotTimerEnable(bool)));
   start(QThread::NormalPriority);
 
   qDebug()<<"End constructor of object THwBehave";
 }
 
-//-----------------------------------------------------------------------------
-//--- Destructor
-//-----------------------------------------------------------------------------
+/*!
+ * @brief Деструктор класса THwBehave
+ *
+ * Останавливает внутренний таймер и прерывает выполнение потока.
+ * Удаляет последовательное устройство.
+ */
 THwBehave::~THwBehave()
 {
   qDebug()<<"Start destructor of object THwBehave";
@@ -46,8 +55,9 @@ THwBehave::~THwBehave()
   qDebug()<<"End destructor of object THwBehave";
 }
 
-
-// qDebug operator owerwrite for print states in debug mode
+/*!
+ * @brief qDebug operator owerwrite for print states in debug mode
+ */
 QDebug operator <<(QDebug dbg, const CPhase &t)
 {
   dbg.nospace() <<"STATE=";
@@ -61,42 +71,31 @@ QDebug operator <<(QDebug dbg, const CPhase &t)
   case GLOBAL_ERROR_STATE: dbg.space()     << "GLOBAL_ERROR_STATE" ; break;
   case SEND_STATE: dbg.space()             << "SEND_STATE"; break;
   case GETINFO_STATE: dbg.space()          << "GETINFO_STATE" ; break;
-  case TIMER_START_STATE: dbg.space()      << "TIMER_START_STATE"; break;
-  case TIMER_STOP_STATE: dbg.space()       << "TIMER_STOP_STATE"; break;
   default:  dbg.space()                    << "UNKNOWN_STATE" ; break;
   }
   return dbg.nospace() ;//<< endl;;
 }
-//-----------------------------------------------------------------------------
-//--- State all error Status for all stadies
-//-----------------------------------------------------------------------------
-QString THwBehave::getErrorStr(int st)
-{
-  return(cErrStr[abs(st)]);
-}
 
-//-----------------------------------------------------------------------------
-//--- timer timeout event. On this event can get data from device
-//-----------------------------------------------------------------------------
-void THwBehave::timeAlarm(void)
-{
-  //qDebug()<<"TIMER'";
-  allStates[GETSTATUS_STATE]=GETSTATUS_STATE;
-  condition.wakeOne();
-}
-
-//-----------------------------------------------------------------------------
-//--- Run process. Main cycle with state machine
-//-----------------------------------------------------------------------------
+/*!
+ * \brief Запуск основного цикла обработчика потока.
+ *
+ * Создание экземпляра QSerialPort и запуск потока, в котором
+ * работает обрабочик автомата состояний. Автомат настраивается на
+ * состояние #INITIAL_STATE по обработке которого происходит инициализация
+ * последовательного порта. В случае ошибки поток прерывается и в пользовательский
+ * интерфейс отправляется сообщение об неуспешной инициализации устройства.
+ * внутри потока управление работой внутреннего таймера осуществляется с
+ * использованием сигнала signalTimerEnable().
+*/
 void THwBehave::run()
 {
+  qDebug()<<"Start run() cycle of object THwBehave";
   abort=false;
   serial=new QSerialPort();
   phase=INITIAL_STATE;
   for(int i=0;i<ALLREQSTATES;i++) allStates[i]=READY;
-  qDebug()<<"Start run() cycle of object THwBehave";
-
   CPhase deb=READY;//for debug only
+
   while(!abort) { // run until destructor not set abort
     mutex.lock();
     if(phase==READY){
@@ -154,7 +153,7 @@ void THwBehave::run()
           hwVersion="unknown";
           emit signalMsg("",4); // device absent
         }
-        hwError=getErrorStr(hwErr);
+        hwError=decodeErrorStr(hwErr);
         phase = SEND_STATE;
         break;
       }//end case GETINFO_STATE:
@@ -209,7 +208,7 @@ void THwBehave::run()
             if(hwErr) break;
           }
           if(hwErr){
-            hwError=getErrorStr(hwErr);
+            hwError=decodeErrorStr(hwErr);
             hwStatus="data don't write";
             phase = SEND_STATE;
             break;
@@ -231,7 +230,7 @@ void THwBehave::run()
           break;
         }
         emit signalMsg("",5); // device present
-        hwError=getErrorStr(hwErr);
+        hwError=decodeErrorStr(hwErr);
         phase = SEND_STATE;
         //phase=READY;
         break;
@@ -244,9 +243,24 @@ void THwBehave::run()
   qDebug()<<"End run() cycle of object THwBehave";
 }
 
-//-----------------------------------------------------------------------------
-//--- public readSettings()
-//-----------------------------------------------------------------------------
+//------------------------------------------Public methods
+/*!
+ * @brief Декодирует код ошибки в строку
+ *
+ * Возвращает строку с описанием ошибки
+ * \param [in] st код ошибки
+ * \return строка с кодом ошибки
+ */
+QString THwBehave::decodeErrorStr(int st)
+{
+  return(cErrStr[abs(st)]);
+}
+
+/*!
+ * @brief Чтение настроек
+ *
+ * Чтение пользовательских настроек.
+ */
 void THwBehave::readSettings(void)
 {
   QString dir_path = qApp->applicationDirPath();
@@ -257,10 +271,18 @@ void THwBehave::readSettings(void)
   address=setup.value("address",1).toInt(&ok); if(!ok) address=1;
 }
 
-//================= DEVICE PART ================================================================================================================
-//-----------------------------------------------------------------------------
-//--- Initialise device INITIAL_STATE in state machine
-//-----------------------------------------------------------------------------
+int THwBehave::readTime(void)
+{
+  int ti[ALLVECTORS],err;
+  for(int i=0;i<ALLVECTORS;i++) time[i]=-100;
+  for(int i=0;i<ALLVECTORS;i++){
+    err=readData("RT",i+1,&ti[i]);
+    if(err) return err;
+  }
+  for(int i=0;i<ALLVECTORS;i++) time[i]=ti[i];
+  return 0;
+}
+
 int THwBehave::initialDevice(void)
 {
   serial->setPortName(serialPortName);
@@ -271,24 +293,33 @@ int THwBehave::initialDevice(void)
  }
   return 0;
 }
-
-int THwBehave::readTime()
+/// установка автомата состояния
+void THwBehave::setState(CPhase state)
 {
-  int ti[ALLVECTORS],err;
-  for(int i=0;i<ALLVECTORS;i++) time[i]=-100;
-  for(int i=0;i<ALLVECTORS;i++){
-    err=readData("GT",i+1,&ti[i]);
-    if(err) return err;
-  }
-  for(int i=0;i<ALLVECTORS;i++) time[i]=ti[i];
-  return 0;
+  mutex.lock(); allStates[state]=state; mutex.unlock(); condition.wakeOne();
 }
 
-// private slots
-void THwBehave::slotTimerEnable(bool en)
+/// выход из цикла обработки run()
+void THwBehave::setAbort(bool a)
 {
-  if(en) tAlrm->start(SAMPLE_DEVICE); else tAlrm->stop();
+  abort=a; condition.wakeOne();
 }
+
+int THwBehave::getTime(int index)
+{
+  return time[index];
+}
+void THwBehave::setTime(int index,int val)
+{
+  time[index]=val;
+}
+//================= DEVICE PART ================================================================================================================
+//-----------------------------------------------------------------------------
+//--- Initialise device INITIAL_STATE in state machine
+//-----------------------------------------------------------------------------
+
+
+
 
 // return 0 if controller alive
 int THwBehave::execCmd(QString command)
@@ -429,4 +460,28 @@ int THwBehave::writeData(QString cmd,int ch, int data)
     break;
   }
   return ret;
+}
+
+//----------------------------------------- public slots
+/*!
+ * @brief Вызов для разрешении/запрещении внутреннего таймера.
+ *
+ * Используется для запуска/остановки внутреннего таймера из другого потока.
+ */
+void THwBehave::slotTimerEnable(bool en)
+{
+  if(en) tAlrm->start(SAMPLE_DEVICE); else tAlrm->stop();
+}
+
+/*!
+ * @brief Вызов по окончанию отсчета интервала внутреннего таймера.
+ *
+ * Таймаут, возникающий по срабатыванию внутреннего таймера.
+ * Используется для опроса внешнего устройства.
+ */
+void THwBehave::slotTimeAlarm(void)
+{
+  //qDebug()<<"TIMER'";
+  allStates[GETSTATUS_STATE]=GETSTATUS_STATE;
+  condition.wakeOne();
 }
