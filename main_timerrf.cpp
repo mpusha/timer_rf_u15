@@ -1,8 +1,15 @@
-
+/*!
+*  \file main_timerrf.cpp
+*  \brief Файл с реализацией класса TTimerRf.
+*/
 #include "main_timerrf.h"
-//-----------------------------------------------------------------------------
-//--- Constructor
-//-----------------------------------------------------------------------------
+
+/*!
+ * @brief Конструктор класса TTimerRf.
+ *
+ * Создает объект с GUI пользовательски интерфейсом
+ * и объект THwBehave.
+ */
 TTimerRf::TTimerRf(QWidget *parent)  : QMainWindow(parent)
 {
   create_ListWidget();
@@ -21,14 +28,16 @@ TTimerRf::TTimerRf(QWidget *parent)  : QMainWindow(parent)
   dev=new THwBehave;
   connect(dev, SIGNAL(signalMsg(QString,int)), this, SLOT(slot_processMsg(QString,int)));
   connect(dev, SIGNAL(signalDataReady(int)), this, SLOT(slot_processData(int)));
-  setMinimumSize(800,320);
+  setMinimumSize(900,320);
   //showMaximized();
   resize(900,320);
 }
 
-//-----------------------------------------------------------------------------
-//--- Destructor
-//-----------------------------------------------------------------------------
+/*!
+ * @brief Деструктор класса TTimerRf.
+ *
+ * Удаляет созданные объекты таблицы и объект THwBehave.
+ */
 TTimerRf::~TTimerRf()
 {    
   for(int i=0;i<8;i++) {
@@ -36,15 +45,50 @@ TTimerRf::~TTimerRf()
   }
   delete dev;
 }
-void TTimerRf::keyPressEvent(QKeyEvent *event)
+
+//-----------------------------PUBLIC METHODS
+/*!
+ * @brief Занесение данных в поля таблицы.
+ *
+ * Запись данных в поля таблицы. Данные о времени срабатывания каналов
+ * представляются в виде числа в мс с двумя значащими числами после запятой.
+ */
+void TTimerRf::putDataToTable(void)
 {
-   qDebug()<<"keyPressed"<<event->key();
-   modifyData=true;
-   QWidget::keyPressEvent(event);
+  for(int i=0;i<ALLVECTORS;i++) {
+    data[0][i]=round(data[0][i]*100)/100.0;
+    itemTable[0][i]->setText(QString("%1").arg(data[0][i],5,'f',2));
+  }
 }
-//-----------------------------------------------------------------------------
-//--- create ListWidget
-//-----------------------------------------------------------------------------
+
+/*!
+ * @brief Считывание данных из полей таблицы.
+ *
+ * Считывание данных из полей таблицы во внутреннюю переменную data[]. Данные о времени срабатывания каналов
+ * представляются в виде числа в мс с двумя значащими числами после запятой. Усли данные <0, записывается 0.
+ * Если данные > #maxTime записывается #maxTime.
+ */
+void TTimerRf::getDataFromTable(void)
+{
+  bool ok;
+  double tmp;
+  for(int i=0;i<ALLVECTORS;i++) {
+    tmp=itemTable[0][i]->text().toDouble(&ok);
+    if(tmp<0) tmp=0;
+    else if(tmp>maxTime)
+      tmp=maxTime;
+    tmp=round(tmp*100);
+    data[0][i]=tmp/100.0;
+    if(!ok) data[0][i]=0;
+  }
+}
+//------------------------------------PRIVATE METHODS
+/*!
+ * @brief Создание виджетов в пользовательском окне.
+ *
+ * Создает виджеты меню, таблица, кнопки, статусная строка
+ * в окне пользовательского интерфейса.
+ */
 void TTimerRf::create_ListWidget()
 {
   MainGroupBox = new QGroupBox(tr("Prepare data"),this);
@@ -106,32 +150,12 @@ void TTimerRf::create_ListWidget()
  write_btn->setEnabled(false);
 }
 
-void TTimerRf::putDataToTable(void)
-{
-  for(int i=0;i<ALLVECTORS;i++) {
-    data[0][i]=round(data[0][i]*100)/100.0;
-    itemTable[0][i]->setText(QString("%1").arg(data[0][i],5,'f',2));
-  }
-}
 
-void TTimerRf::getDataFromTable(void)
-{
-  bool ok;
-  double tmp;
-  for(int i=0;i<ALLVECTORS;i++) {
-    tmp=itemTable[0][i]->text().toDouble(&ok);
-    if(tmp<0) tmp=0;
-    else if(tmp>maxTime)
-      tmp=maxTime;
-    tmp=round(tmp*100);
-    data[0][i]=tmp/100.0;
-    if(!ok) data[0][i]=0;
-  }
-}
-
-//-----------------------------------------------------------------------------
-//--- create Menu
-//-----------------------------------------------------------------------------
+/*!
+ * @brief Создание меню.
+ *
+ * Создает виджеты меню в окне пользовательского интерфейса.
+ */
 void TTimerRf::create_Menu()
 {
   QFont font = app_font;
@@ -145,9 +169,13 @@ void TTimerRf::create_Menu()
 
 }
 
-//-----------------------------------------------------------------------------
-//--- create StatusBar
-//-----------------------------------------------------------------------------
+/*!
+ * @brief Создание статусной строки.
+ *
+ * Создает виджет статусной строки в окне пользовательского интерфейса.
+ * В него входит информация об ошибке таймера, статусе таймера, где записываются результаты выполнения команд,
+ * версии программного обеспечения.
+ */
 void TTimerRf::create_StatusBar()
 {
   err_Label = new QLabel("Error: unknown");
@@ -174,19 +202,27 @@ void TTimerRf::create_StatusBar()
   statusBar()->setFont(font);
 }
 
-//-----------------------------------------------------------------------------
-//--- Sleep
-//-----------------------------------------------------------------------------
-void TTimerRf::Sleep(int ms)
+/*!
+ * @brief Обработчик нажатий клавиатуры.
+ *
+ * Отслеживает нажатия клавиатуры. Используется для определения модификации
+ * входных данных.
+ */
+void TTimerRf::keyPressEvent(QKeyEvent *event)
 {
-  QEventLoop loop;
-  QTimer::singleShot(ms, &loop, SLOT(quit()));
-  loop.exec();
+//   qDebug()<<"keyPressed"<<event->key();
+   modifyData=true;
+   QWidget::keyPressEvent(event);
 }
 
-//------------------------------ SLOTS ----------------------------------------
-
-
+//-----------------------------PUBLIC SLOTS ----------------------------------------
+/*!
+ * @brief Слот обработки сообщений.
+ *
+ * Создает виджет статусной строки в окне пользовательского интерфейса.
+ * В него входит информация об ошибке таймера, статусе таймера, где записываются результаты выполнения команд,
+ * версии программного обеспечения.
+ */
 void TTimerRf::slot_processMsg(QString msg, int code)
 {
   if(code==5){ // device present
@@ -221,6 +257,13 @@ void TTimerRf::slot_processMsg(QString msg, int code)
     hwver_Label->setText("HW version: "+msg);
   }
 }
+/*!
+ * @brief Слот обработки сообщений.
+ *
+ * Создает виджет статусной строки в окне пользовательского интерфейса.
+ * В него входит информация об ошибке таймера, статусе таймера, где записываются результаты выполнения команд,
+ * версии программного обеспечения.
+ */
 void TTimerRf::slot_processData(int code)
 {
   if(code==0){
@@ -230,11 +273,25 @@ void TTimerRf::slot_processData(int code)
     putDataToTable();
   }
 }
+/*!
+ * @brief Слот обработки сообщений.
+ *
+ * Создает виджет статусной строки в окне пользовательского интерфейса.
+ * В него входит информация об ошибке таймера, статусе таймера, где записываются результаты выполнения команд,
+ * версии программного обеспечения.
+ */
 void TTimerRf::slot_updateHW(void)
 {
    dev->setState(UPDATE_STATE);
 }
 
+/*!
+ * @brief Слот обработки сообщений.
+ *
+ * Создает виджет статусной строки в окне пользовательского интерфейса.
+ * В него входит информация об ошибке таймера, статусе таймера, где записываются результаты выполнения команд,
+ * версии программного обеспечения.
+ */
 void TTimerRf::slot_writeData(void)
 {
   if(modifyData){

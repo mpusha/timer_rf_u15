@@ -1,6 +1,6 @@
 /*!
 *  \file hwBehave.h
-*  \brief Заголовочный файл с описанием класса THwBehave
+*  \brief Заголовочный файл с описанием класса THwBehave.
 */
 #ifndef HWBEHAVE_H
 #define HWBEHAVE_H
@@ -72,11 +72,15 @@ const QString cErrStr[]={"none","input buffer overflow","scanf format","range in
                          "bad answer from uC"
                         }; //19
 
-/*! \brief Class THwBehave
+/*! \brief Класс для работы с модулем таймера системы "Шпат" ускорителя У-1.5
  *  \date Oct 2024
  * \author Sergey Sytov
  *
- * Класс для работы с HW таймера системы "Шпат" ускорителя У-1.5
+ * Класс включающий методы для работы с модулем таймера системы "Шпат" ускорителя У-1.5.
+ * Методы позволяют произвести запись временных уставок в каналы таймера,
+ * прочитать временные уставки, прочитать возникающие при работе ошибки и
+ * статусы.
+ *
 */
 class THwBehave : public QThread
 {
@@ -86,7 +90,7 @@ public:
   ~THwBehave();
   void readSettings(void);
   void setState(CPhase state);
-  void setAbort(bool a);
+  void setAbort(bool ab);
   int initialDevice(void);
   int readTime(void);
   int getTime(int index);
@@ -128,9 +132,9 @@ public slots:
   void slotTimerEnable(bool);
 
 signals:
-  void signalTimerEnable(bool);
-  void signalMsg(QString,int);
-  void signalDataReady(int);
+  void signalTimerEnable(bool);///< Сигнал на разрешение работы внутреннего таймера
+  void signalMsg(QString,int);///< Сигнал в GUI поток с сообщениями об ошибках и статусом
+  void signalDataReady(int);///< Сигнал о готовности данных
 
 };
 

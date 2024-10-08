@@ -1,6 +1,6 @@
 /*!
 *  \file hwBehave.cpp
-*  \brief Файл с реализацией класса THwBehave
+*  \brief Файл с реализацией класса THwBehave.
 */
 #include <QThread>
 #include <QDir>
@@ -9,7 +9,7 @@
 #include "hwBehave.h"
 
 /*!
- * @brief Конструктор класса THwBehave
+ * @brief Конструктор класса THwBehave.
  *
  * Создает объект внутреннего таймера для опроса внешнего устройства.
  * Считывает уставки переменных и запускает поток.
@@ -31,7 +31,7 @@ THwBehave::THwBehave()
 }
 
 /*!
- * @brief Деструктор класса THwBehave
+ * @brief Деструктор класса THwBehave.
  *
  * Останавливает внутренний таймер и прерывает выполнение потока.
  * Удаляет последовательное устройство.
@@ -245,11 +245,11 @@ void THwBehave::run()
 
 //------------------------------------------Public methods
 /*!
- * @brief Декодирует код ошибки в строку
+ * @brief Декодирует код ошибки в строку.
  *
- * Возвращает строку с описанием ошибки
- * \param [in] st код ошибки
- * \return строка с кодом ошибки
+ * Возвращает строку с описанием ошибки.
+ * \param [in] st код ошибки.
+ * \return строка с кодом ошибки.
  */
 QString THwBehave::decodeErrorStr(int st)
 {
@@ -257,9 +257,11 @@ QString THwBehave::decodeErrorStr(int st)
 }
 
 /*!
- * @brief Чтение настроек
+ * @brief Чтение настроек.
  *
- * Чтение пользовательских настроек.
+ * Чтение пользовательских настроек из файла setup.ini, находящегося
+ * в одном каталоге с исполняемой программой. Считываются имя устройства последовательного порта,
+ * скорости и адреса таймера.
  */
 void THwBehave::readSettings(void)
 {
@@ -271,6 +273,14 @@ void THwBehave::readSettings(void)
   address=setup.value("address",1).toInt(&ok); if(!ok) address=1;
 }
 
+/*!
+ * @brief Чтение установленных значений времени на каналах таймера.
+ *
+ * Чтение в переменную time[] значений временных уставок по каналам в мкс.
+ * В случае ошибки устанавливается отрицательное значение и возвращается код ошибки.
+ * Если ошибки нет возвращается #ERR_NONE.
+ * \return код ошибки.
+ */
 int THwBehave::readTime(void)
 {
   int ti[ALLVECTORS],err;
@@ -283,6 +293,13 @@ int THwBehave::readTime(void)
   return 0;
 }
 
+/*!
+ * @brief Инициализация устройства последовательного порта.
+ *
+ * Инициализация последовательного порта. Возвращается код ошибки.
+ * Если ошибки нет возвращается #ERR_NONE.
+ * \return код ошибки.
+ */
 int THwBehave::initialDevice(void)
 {
   serial->setPortName(serialPortName);
@@ -293,35 +310,65 @@ int THwBehave::initialDevice(void)
  }
   return 0;
 }
-/// установка автомата состояния
+
+/*!
+* @brief Установка автомата состояния.
+*
+* Переход в новое состояние. Переход происходит во время не заблокированного мьютекса, т.е.
+* когда переменная состояния не используется для управления.
+* \param [in] state новое сосотояние аппарата. Возможны следующие состояния:
+* #GETSTATUS_STATE, #WRITE_STATE, #READ_STATE, #UPDATE_STATE
+*/
 void THwBehave::setState(CPhase state)
 {
   mutex.lock(); allStates[state]=state; mutex.unlock(); condition.wakeOne();
 }
 
-/// выход из цикла обработки run()
-void THwBehave::setAbort(bool a)
+/*!
+* @brief Выход из цикла обработки run().
+*
+* Выход из цикла обработчика потока.
+* \param [in] ab - если установлена в true то осуществляется выход.
+*/
+void THwBehave::setAbort(bool ab)
 {
-  abort=a; condition.wakeOne();
+  abort=ab; condition.wakeOne();
 }
 
+/*!
+* @brief Чтение установленного времени срабатывания канала таймера.
+*
+* Чтение установленного времени срабатывания канала таймера в мкс.
+* \param [in] index - номер канала.
+* \return время в мкс.
+*/
 int THwBehave::getTime(int index)
 {
   return time[index];
 }
+
+/*!
+* @brief Запись установленного времени срабатывания канала таймера.
+*
+* Запись установленного времени срабатывания канала таймера в мкс.
+* \param [in] index - номер канала.
+* \param [in] val - время в мкс.
+*/
 void THwBehave::setTime(int index,int val)
 {
   time[index]=val;
 }
-//================= DEVICE PART ================================================================================================================
-//-----------------------------------------------------------------------------
-//--- Initialise device INITIAL_STATE in state machine
-//-----------------------------------------------------------------------------
 
-
-
-
-// return 0 if controller alive
+//--------------------------------------Private methods
+/*!
+* @brief Выполнение команды в таймере.
+*
+* Запись по последовательному каналу в микроконтроллер с адресом address таймера команды, и прием ответа.
+* Команда может быть AL,SM,UH.
+* Если ошибки нет возвращается #ERR_NONE.
+* \param [in] command - строка с командой.
+* \return код ошибки.
+*/
 int THwBehave::execCmd(QString command)
 {
   int codret=0;
@@ -332,6 +379,7 @@ int THwBehave::execCmd(QString command)
   serial->write(cmd.toLocal8Bit().data(),cmd.size()+1);
   if (!serial->waitForBytesWritten(SERIAL_TOUT)) return ERR_UART_TRANS;
   // read response
+  msleep(RS_DELAY);
   answer.clear();
   QByteArray tmp;
   while(serial->waitForReadyRead(SERIAL_TOUT)){
@@ -350,16 +398,32 @@ int THwBehave::execCmd(QString command)
   if(addr_c!=address) return ERR_IDATA_ADDR;  // address none correct
   codret=rdata.at(1).toInt(&ok);
   if(!ok) return ERR_IDATA_DATA;
-  if(codret) return ERR_BAD;
-  return ERR_NONE;
+  return codret;
 }
 
+/*!
+* @brief Отправка команды в таймер.
+*
+* Запись по последовательному каналу в микроконтроллер таймера команды.
+* Если ошибки нет возвращается #ERR_NONE.
+* \param [in] cmd - строка с командой.
+* \return код ошибки.
+*/
 int THwBehave::sendCmd(QString cmd)
 {
   serial->write(cmd.toLocal8Bit().data(),cmd.size()+1);
   if (!serial->waitForBytesWritten(SERIAL_TOUT)) return ERR_UART_TRANS;
   return ERR_NONE;
 }
+
+/*!
+* @brief Получение ответа на переданную команду.
+*
+* Ожидание и прием ответа на заранее переданную команду.
+* Если ошибки нет возвращается #ERR_NONE.
+* \param [in] answer - строка с командой.
+* \return код ошибки.
+*/
 int THwBehave::readAnswer(QString& answer)
 {
   answer.clear();
@@ -373,6 +437,17 @@ int THwBehave::readAnswer(QString& answer)
   return ERR_NONE;
 }
 
+/*!
+* @brief Чтение из таймера строки символов.
+*
+* Передача команды, по выполнению которой получаем строку символов.
+* Это может быть статус устройства.
+* Команда может быть RS, GF.
+* Если ошибки нет возвращается #ERR_NONE.
+* \param [in] cmd - строка с командой.
+* \param [in] ans - прочитанная строка.
+* \return код ошибки.
+*/
 int THwBehave::readStr(QString cmd,QString& ans)
 {
   QString sendStr;
@@ -400,7 +475,18 @@ int THwBehave::readStr(QString cmd,QString& ans)
   }
   return ret;
 }
-// read timer channel setup value
+
+/*!
+* @brief Чтение из таймера данных о времени срабатывания канала.
+*
+* Чтение из таймера данных о времени срабатывания канала в мкс.
+* Команда может быть RT, GT.
+* Если ошибки нет возвращается #ERR_NONE.
+* \param [in] cmd - строка с командой.
+* \param [in] ch - номер канала от 1 до 8
+* \param [in] *readData - указатель на прочитанные из таймера данные в мкс.
+* \return код ошибки.
+*/
 int THwBehave::readData(QString cmd,int ch,int *readData)
 {
   QString sendStr;
@@ -431,6 +517,17 @@ int THwBehave::readData(QString cmd,int ch,int *readData)
   return ret;
 }
 
+/*!
+* @brief Запись в канал таймера данных о времени срабатывания.
+*
+* Запись в таймер данных о времени срабатывания канала в мкс.
+* Команда может быть ST, WT.
+* Если ошибки нет возвращается #ERR_NONE.
+* \param [in] cmd - строка с командой.
+* \param [in] ch - номер канала от 1 до 8
+* \param [in] *data - время в мкс.
+* \return код ошибки.
+*/
 int THwBehave::writeData(QString cmd,int ch, int data)
 {
 
@@ -467,6 +564,7 @@ int THwBehave::writeData(QString cmd,int ch, int data)
  * @brief Вызов для разрешении/запрещении внутреннего таймера.
  *
  * Используется для запуска/остановки внутреннего таймера из другого потока.
+ * \param [in] en - true разрешает работу таймера
  */
 void THwBehave::slotTimerEnable(bool en)
 {

@@ -1,26 +1,28 @@
-#ifndef MAIN_TRF_H
-#define MAIN_TRF_H
-
 /*!
 *  \file main_timerrf.h
-*  \brief Header of class TDtBehave
+*  \brief Заголовочный файл с описанием класса TTimerRf.
 */
+
+#ifndef MAIN_TRF_H
+#define MAIN_TRF_H
 
 #include <qt5/QtWidgets/QtWidgets>
 #include "hwBehave.h"
 
-//------------------------------------------------------
-#define MAXTIME 500
-#define MINTIME 100
-//#define ALLVECTORS 8
+const double maxTime=59.500; ///< максимально возможное время уставки в мс.
 
-#define HEADER_COLOR  0xfff6f7f9
 
-const double maxTime=59.500;
-
-//------------------------------------------------------
 class TTimerRf;
-//------------------------------------------------------
+/*! \brief Класс для работы с модулем таймера системы "Шпат" ускорителя У-1.5
+ *  \date Oct 2024
+ * \author Sergey Sytov
+ *
+ * Класс включающий методы для работы с модулем таймера системы "Шпат" ускорителя У-1.5.
+ * Методы позволяют произвести запись временных уставок в каналы таймера,
+ * прочитать временные уставки, прочитать возникающие при работе ошибки и
+ * статусы.
+ *
+*/
 class TTimerRf : public QMainWindow
 {
     Q_OBJECT
@@ -31,7 +33,6 @@ public:
     ~TTimerRf();
     void putDataToTable(void);
     void getDataFromTable(void);
-
 
 private:
 //--- Widgets ---
@@ -52,10 +53,7 @@ private:
     void create_ListWidget();
     void create_StatusBar();        // create StatusBar
     void create_Menu();             // create Menu
-    void Sleep(int ms);
     void keyPressEvent(QKeyEvent *event);
-//--- Widgets ---
-
 
 private:
 //--- Data ----
@@ -65,18 +63,14 @@ private:
     QTableWidgetItem *itemTable[1][ALLVECTORS];
 
     double data[1][ALLVECTORS];
-
     bool modifyData;
     THwBehave *dev;
+
 public slots:
     void slot_writeData(void);
     void slot_processMsg(QString,int);
     void slot_updateHW(void);
     void slot_processData(int code);
-
-protected:
-
-
 };
 
 #endif // MAIN_TRF_H
